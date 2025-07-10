@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>クラス図（HTML版）</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', 'Meiryo', sans-serif;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 40px;
+    }
+    .diagram {
+      position: relative;
+      width: 1200px;
+      margin: 0 auto;
+      min-height: 800px;
+    }
+    .class-box {
+      background: #fff;
+      border: 2px solid #333;
+      border-radius: 8px;
+      box-shadow: 2px 2px 8px #ccc;
+      width: 220px;
+      min-height: 120px;
+      position: absolute;
+      padding: 12px 16px;
+      box-sizing: border-box;
+    }
+    .class-title {
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 2px;
+    }
+    .class-section {
+      margin-bottom: 6px;
+    }
+    .class-section ul {
+      margin: 0 0 0 12px;
+      padding: 0;
+      list-style: disc inside;
+      font-size: 0.97em;
+    }
+    /* 配置 */
+    #user { top: 30px; left: 40px; }
+    #med { top: 220px; left: 40px; }
+    #reminder { top: 220px; left: 320px; }
+    #history { top: 420px; left: 40px; }
+    #notify { top: 220px; left: 600px; }
+    #storage { top: 420px; left: 320px; }
+    /* 矢印線 */
+    .arrow {
+      position: absolute;
+      pointer-events: none;
+      z-index: 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>クラス図（Mermaid.js使用）</h2>
+  <div class="mermaid" style="background:#fff; border-radius:8px; padding:24px;">
+classDiagram
+    class 薬 {
+        +string 名前
+        +string 種別  // サプリ、処方薬、常備薬
+        +string 用量
+        +string 頻度
+        +DateTime 開始日
+        +DateTime 終了日
+        +string 効果
+        +string 副作用
+        +int 残量
+        +void 登録する()
+        +void 編集する()
+        +void 削除する()
+    }
+
+    class リマインダー {
+        +DateTime 通知時間
+        +string 繰り返し間隔
+        +bool 有効
+        +void 通知する()
+        +void スケジュール設定()
+        +void スヌーズ()
+    }
+
+    class 服薬履歴 {
+        +DateTime 服薬時刻
+        +bool 服薬済み
+        +string 薬名
+        +string メモ
+        +void 記録する()
+        +List<服薬履歴> 表示する()
+    }
+
+    class 利用者 {
+        +string 名前
+        +string メール
+        +string パスワード
+        +void ログイン()
+        +void ログアウト()
+        +void プロフィール編集()
+    }
+
+    class 通知サービス {
+        +void 通知送信()
+        +void 遅延確認()
+    }
+
+    class データ保存 {
+        +void 保存する()
+        +void 読み込む()
+        +void 暗号化する()
+        +void 復号化する()
+        +bool オフラインモード対応
+    }
+
+    利用者 --> 薬 : 管理
+    薬 --> リマインダー : 通知スケジュール
+    薬 --> 服薬履歴 : 服薬情報連携
+    利用者 --> 服薬履歴 : 閲覧・記録
+    リマインダー --> 通知サービス : 通知依頼
+    薬 --> データ保存 : 保存対象
+    服薬履歴 --> データ保存 : 保存対象
+    利用者 --> データ保存 : 利用者データ保存
+  </div>
+  <p style="margin-top:40px; color:#555;">※本図はMermaid.jsで描画しています。</p>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'default', fontFamily: 'Meiryo, Segoe UI, sans-serif' });
+  </script>
+</body>
+</html>
