@@ -20,8 +20,20 @@
             <label for="dosage">1回あたりの服用量</label><br>
             <input type="number" id="dosage" placeholder="例：1、2など" min="1" required><br>
 
-            <label for="interval">服薬間隔（時間）</label><br>
-            <input type="number" id="interval" placeholder="例：8（8時間ごと）" min="1" required><br>
+            <label for="interval-date">服薬日（複数選択可）</label><br>
+            <input type="date" id="interval-date" multiple><br>
+            <small style="color:#555;">服薬する日付を選択してください（複数日選択可、カンマ区切りで入力も可）</small><br>
+
+            <label for="interval-time">服薬時刻（1日複数回の場合は追加）</label><br>
+            <select id="interval-time" multiple required>
+                <option value="06:00">06:00</option>
+                <option value="08:00">08:00</option>
+                <option value="12:00">12:00</option>
+                <option value="18:00">18:00</option>
+                <option value="21:00">21:00</option>
+                <option value="22:00">22:00</option>
+            </select><br>
+            <small style="color:#555;">服薬する時刻を選択してください（CtrlやShiftで複数選択可）</small><br>
 
             <label for="count">薬の個数</label><br>
             <input type="number" id="count" placeholder="例：20" min="1" required><br>
@@ -51,35 +63,41 @@
 
     <script src="app.js"></script>
     <script>
-    // 終了日自動計算
+    // 終了日自動計算（選択した服薬日数で計算）
     function calcEndDate() {
         const startDate = document.getElementById('start-date').value;
         const dosage = parseInt(document.getElementById('dosage').value, 10);
-        const interval = parseInt(document.getElementById('interval').value, 10);
         const count = parseInt(document.getElementById('count').value, 10);
-        if (!startDate || !dosage || !interval || !count) {
+        // 服薬日（複数日選択可）
+        let intervalDates = document.getElementById('interval-date').value;
+        if (intervalDates.includes(',')) {
+            intervalDates = intervalDates.split(',').map(s => s.trim()).filter(Boolean);
+        } else if (intervalDates) {
+            intervalDates = [intervalDates];
+        } else {
+            intervalDates = [];
+        }
+        if (!startDate || !dosage || !count || intervalDates.length === 0) {
             document.getElementById('end-date').value = '';
             return;
         }
-        // 1日あたりの服薬回数
-        const timesPerDay = Math.floor(24 / interval);
-        if (timesPerDay === 0) {
-            document.getElementById('end-date').value = '';
-            return;
-        }
-        // 何日分か
-        const totalDays = Math.ceil(count / (dosage * timesPerDay));
-        const start = new Date(startDate);
-        start.setDate(start.getDate() + totalDays - 1);
-        const yyyy = start.getFullYear();
-        const mm = String(start.getMonth() + 1).padStart(2, '0');
-        const dd = String(start.getDate()).padStart(2, '0');
-        document.getElementById('end-date').value = `${yyyy}-${mm}-${dd}`;
+        // 服薬日数
+        const totalDays = intervalDates.length;
+        // 1日分の服薬量
+        // 服薬時刻の数
+        const times = Array.from(document.getElementById('interval-time').selectedOptions).length || 1;
+        const totalDoses = totalDays * times * dosage;
+        // 実際に何日分持つか
+        const daysCovered = Math.floor(count / (dosage * times));
+        // 終了日
+        let endDate = intervalDates[daysCovered - 1] || intervalDates[intervalDates.length - 1];
+        document.getElementById('end-date').value = endDate || '';
     }
     document.getElementById('dosage').addEventListener('input', calcEndDate);
-    document.getElementById('interval').addEventListener('input', calcEndDate);
     document.getElementById('count').addEventListener('input', calcEndDate);
     document.getElementById('start-date').addEventListener('input', calcEndDate);
+    document.getElementById('interval-date').addEventListener('input', calcEndDate);
+    document.getElementById('interval-time').addEventListener('change', calcEndDate);
     </script>
 </body>
 </html>
