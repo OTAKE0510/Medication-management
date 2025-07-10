@@ -11,13 +11,35 @@
     <section id="add-section">
         <h2>薬を登録する</h2>
         <form id="medicine-form">
-            <input type="text" id="name" placeholder="薬の名前" required><br>
-            <input type="text" id="category" placeholder="カテゴリ（サプリ・常備薬など）"><br>
-            <input type="number" id="dosage" placeholder="服用量"><br>
-            <input type="date" id="start-date"><br>
-            <input type="date" id="end-date"><br>
-            <input type="text" id="notes" placeholder="効果・副作用など"><br>
+            <label for="name">薬の名前 <span style="color:red">*</span></label><br>
+            <input type="text" id="name" placeholder="例：ロキソニン、ビタミンC" required><br>
+
+            <label for="category">カテゴリ</label><br>
+            <input type="text" id="category" placeholder="例：サプリ、処方薬、常備薬"><br>
+
+            <label for="dosage">1回あたりの服用量</label><br>
+            <input type="number" id="dosage" placeholder="例：1、2など" min="1" required><br>
+
+            <label for="interval">服薬間隔（時間）</label><br>
+            <input type="number" id="interval" placeholder="例：8（8時間ごと）" min="1" required><br>
+
+            <label for="count">薬の個数</label><br>
+            <input type="number" id="count" placeholder="例：20" min="1" required><br>
+
+            <label for="start-date">開始日</label><br>
+            <input type="date" id="start-date" required><br>
+            <small style="color:#555;">服薬やサプリの服用を開始する日付を入力してください</small><br>
+
+            <label for="end-date">終了日（自動計算）</label><br>
+            <input type="date" id="end-date" readonly style="background:#eee;"><br>
+            <small style="color:#555;">服薬回数・間隔・個数から自動計算されます</small><br>
+
+            <label for="notes">効果・副作用など</label><br>
+            <input type="text" id="notes" placeholder="例：頭痛改善、眠気が出る等"><br>
+
+            <label for="time">服薬時間 <span style="color:red">*</span></label><br>
             <input type="time" id="time" required><br>
+
             <button type="submit">追加</button>
         </form>
     </section>
@@ -28,5 +50,36 @@
     </section>
 
     <script src="app.js"></script>
+    <script>
+    // 終了日自動計算
+    function calcEndDate() {
+        const startDate = document.getElementById('start-date').value;
+        const dosage = parseInt(document.getElementById('dosage').value, 10);
+        const interval = parseInt(document.getElementById('interval').value, 10);
+        const count = parseInt(document.getElementById('count').value, 10);
+        if (!startDate || !dosage || !interval || !count) {
+            document.getElementById('end-date').value = '';
+            return;
+        }
+        // 1日あたりの服薬回数
+        const timesPerDay = Math.floor(24 / interval);
+        if (timesPerDay === 0) {
+            document.getElementById('end-date').value = '';
+            return;
+        }
+        // 何日分か
+        const totalDays = Math.ceil(count / (dosage * timesPerDay));
+        const start = new Date(startDate);
+        start.setDate(start.getDate() + totalDays - 1);
+        const yyyy = start.getFullYear();
+        const mm = String(start.getMonth() + 1).padStart(2, '0');
+        const dd = String(start.getDate()).padStart(2, '0');
+        document.getElementById('end-date').value = `${yyyy}-${mm}-${dd}`;
+    }
+    document.getElementById('dosage').addEventListener('input', calcEndDate);
+    document.getElementById('interval').addEventListener('input', calcEndDate);
+    document.getElementById('count').addEventListener('input', calcEndDate);
+    document.getElementById('start-date').addEventListener('input', calcEndDate);
+    </script>
 </body>
 </html>
