@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>クラス図（HTML版）</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', 'Meiryo', sans-serif;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 40px;
+    }
+    .diagram {
+      position: relative;
+      width: 1200px;
+      margin: 0 auto;
+      min-height: 800px;
+    }
+    .class-box {
+      background: #fff;
+      border: 2px solid #333;
+      border-radius: 8px;
+      box-shadow: 2px 2px 8px #ccc;
+      width: 220px;
+      min-height: 120px;
+      position: absolute;
+      padding: 12px 16px;
+      box-sizing: border-box;
+    }
+    .class-title {
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 2px;
+    }
+    .class-section {
+      margin-bottom: 6px;
+    }
+    .class-section ul {
+      margin: 0 0 0 12px;
+      padding: 0;
+      list-style: disc inside;
+      font-size: 0.97em;
+    }
+    /* 配置 */
+    #user { top: 30px; left: 40px; }
+    #med { top: 220px; left: 40px; }
+    #reminder { top: 220px; left: 320px; }
+    #history { top: 420px; left: 40px; }
+    #notify { top: 220px; left: 600px; }
+    #storage { top: 420px; left: 320px; }
+    /* 矢印線 */
+    .arrow {
+      position: absolute;
+      pointer-events: none;
+      z-index: 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>クラス図（HTML表現）</h2>
+  <div class="diagram">
+    <!-- 利用者 -->
+    <div class="class-box" id="user">
+      <div class="class-title">利用者</div>
+      <div class="class-section">
+        <ul>
+          <li>+string 名前</li>
+          <li>+string メール</li>
+          <li>+string パスワード</li>
+        </ul>
+      </div>
+      <div class="class-section">
+        <ul>
+          <li>+void ログイン()</li>
+          <li>+void ログアウト()</li>
+          <li>+void プロフィール編集()</li>
+        </ul>
+      </div>
+    </div>
+    <!-- 薬 -->
+    <div class="class-box" id="med">
+      <div class="class-title">薬</div>
+      <div class="class-section">
+        <ul>
+          <li>+string 名前</li>
+          <li>+string 種別</li>
+          <li>+string 用量</li>
+          <li>+string 頻度</li>
+          <li>+DateTime 開始日</li>
+          <li>+DateTime 終了日</li>
+          <li>+string 効果</li>
+          <li>+string 副作用</li>
+          <li>+int 残量</li>
+        </ul>
+      </div>
+      <div class="class-section">
+        <ul>
+          <li>+void 登録する()</li>
+          <li>+void 編集する()</li>
+          <li>+void 削除する()</li>
+        </ul>
+      </div>
+    </div>
+    <!-- リマインダー -->
+    <div class="class-box" id="reminder">
+      <div class="class-title">リマインダー</div>
+      <div class="class-section">
+        <ul>
+          <li>+DateTime 通知時間</li>
+          <li>+string 繰り返し間隔</li>
+          <li>+bool 有効</li>
+        </ul>
+      </div>
+      <div class="class-section">
+        <ul>
+          <li>+void 通知する()</li>
+          <li>+void スケジュール設定()</li>
+          <li>+void スヌーズ()</li>
+        </ul>
+      </div>
+    </div>
+    <!-- 服薬履歴 -->
+    <div class="class-box" id="history">
+      <div class="class-title">服薬履歴</div>
+      <div class="class-section">
+        <ul>
+          <li>+DateTime 服薬時刻</li>
+          <li>+bool 服薬済み</li>
+          <li>+string 薬名</li>
+          <li>+string メモ</li>
+        </ul>
+      </div>
+      <div class="class-section">
+        <ul>
+          <li>+void 記録する()</li>
+          <li>+List&lt;服薬履歴&gt; 表示する()</li>
+        </ul>
+      </div>
+    </div>
+    <!-- 通知サービス -->
+    <div class="class-box" id="notify">
+      <div class="class-title">通知サービス</div>
+      <div class="class-section">
+        <ul>
+          <li>+void 通知送信()</li>
+          <li>+void 遅延確認()</li>
+        </ul>
+      </div>
+    </div>
+    <!-- データ保存 -->
+    <div class="class-box" id="storage">
+      <div class="class-title">データ保存</div>
+      <div class="class-section">
+        <ul>
+          <li>+void 保存する()</li>
+          <li>+void 読み込む()</li>
+          <li>+void 暗号化する()</li>
+          <li>+void 復号化する()</li>
+          <li>+bool オフラインモード対応</li>
+        </ul>
+      </div>
+    </div>
+    <!-- 矢印（SVGで描画） -->
+    <svg class="arrow" width="1200" height="800">
+      <!-- 利用者 --> 薬 -->
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+        </marker>
+      </defs>
+      <line x1="160" y1="90" x2="160" y2="220" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+      <!-- 薬 --> リマインダー -->
+      <line x1="260" y1="280" x2="320" y2="280" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+      <!-- 薬 --> 服薬履歴 -->
+      <line x1="160" y1="340" x2="160" y2="420" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+      <!-- 利用者 --> 服薬履歴 -->
+      <line x1="80" y1="150" x2="80" y2="420" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+      <!-- リマインダー --> 通知サービス -->
+      <line x1="440" y1="280" x2="600" y2="280" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+      <!-- 薬 --> データ保存 -->
+      <line x1="220" y1="340" x2="320" y2="420" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+      <!-- 服薬履歴 --> データ保存 -->
+      <line x1="160" y1="540" x2="320" y2="480" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+      <!-- 利用者 --> データ保存 -->
+      <line x1="120" y1="90" x2="320" y2="420" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+    </svg>
+  </div>
+  <p style="margin-top:40px; color:#555;">※本図はHTML+CSS+SVGのみで表現しています。MermaidやJSは未使用です。</p>
+</body>
+</html>
