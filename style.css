@@ -1,0 +1,46 @@
+body {
+    font-family: sans-serif;
+    background-color: #f4f8fc;
+    padding: 20px;
+}
+
+h1, h2 {
+    color: #336699;
+}
+
+form {
+    margin-bottom: 20px;
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+input, button {
+    margin: 5px 0;
+    padding: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+button {
+    background-color: #3399cc;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #2a89b9;
+}
+
+#medicine-list li {
+    background: #fff;
+    padding: 10px;
+    margin: 5px 0;
+    border-left: 4px solid #66c;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}

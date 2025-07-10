@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>服薬・サプリリマインダー</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>服薬・サプリリマインダー</h1>
+
+    <section id="add-section">
+        <h2>薬を登録する</h2>
+        <form id="medicine-form">
+            <input type="text" id="name" placeholder="薬の名前" required><br>
+            <input type="text" id="category" placeholder="カテゴリ（サプリ・常備薬など）"><br>
+            <input type="number" id="dosage" placeholder="服用量"><br>
+            <input type="date" id="start-date"><br>
+            <input type="date" id="end-date"><br>
+            <input type="text" id="notes" placeholder="効果・副作用など"><br>
+            <input type="time" id="time" required><br>
+            <button type="submit">追加</button>
+        </form>
+    </section>
+
+    <section id="list-section">
+        <h2>登録された薬一覧</h2>
+        <ul id="medicine-list"></ul>
+    </section>
+
+    <script src="app.js"></script>
+</body>
+</html>
