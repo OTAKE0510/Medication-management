@@ -105,6 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateFormUI() {
         const isTonpuku = intervalTypeSelect.value === 'tonpuku';
         regularSection.style.display = isTonpuku ? 'none' : 'block';
+        durationInput.style.display = isTonpuku ? 'none' : '';
         startDateInput.required = !isTonpuku;
     }
 
@@ -183,6 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
             endDate: isTonpuku ? null : finalEndDate,
             isTonpuku: isTonpuku,
             schedule: schedule
+            // 服用期間（duration）は頓服薬の場合は未使用
         };
 
         medicines.push(newMedicine);
