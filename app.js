@@ -3,10 +3,6 @@ const MedicineRepository = {
     get: () => JSON.parse(localStorage.getItem("medicines")) || [],
     save: (data) => localStorage.setItem("medicines", JSON.stringify(data))
 };
-const HistoryRepository = {
-    get: () => JSON.parse(localStorage.getItem("history")) || [],
-    save: (data) => localStorage.setItem("history", JSON.stringify(data))
-};
 
 // --- アプリケーションのメイン処理 ---
 document.addEventListener("DOMContentLoaded", () => {
@@ -16,14 +12,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const scheduleList = document.getElementById('schedule-list');
     const addScheduleBtn = document.getElementById('add-schedule-btn');
     const intervalTypeSelect = document.getElementById('interval-type');
-    const tonpukuSection = document.getElementById('tonpuku-section');
     const regularSection = document.getElementById('regular-section');
+    const stockInput = document.getElementById('stock');
+    const startDateInput = document.getElementById('start-date');
+    const durationInput = document.getElementById('duration');
+    const endDateInput = document.getElementById('end-date');
 
     // --- データの読み込み ---
     let medicines = MedicineRepository.get();
-    let history = HistoryRepository.get();
 
-    // --- UI更新関数 ---
+    // --- UI更新・計算関数 ---
 
     /** 薬リストを描画 */
     function renderList() {
@@ -31,19 +29,8 @@ document.addEventListener("DOMContentLoaded", () => {
         medicines.forEach((item) => {
             const li = document.createElement("li");
             li.dataset.id = item.id;
-
-            let scheduleText = '';
-            let actionButtons = ''; // アクションボタンを初期化
-
-            if (item.isTonpuku) {
-                scheduleText = `頓服薬 (1回 ${item.tonpukuDosage}錠)`;
-                // 頓服薬用の「服用」ボタンを追加
-                actionButtons = `<button class="take-tonpuku-btn main-btn" ${item.stock <= 0 ? "disabled" : ""}>服用</button>`;
-            } else {
-                scheduleText = (item.schedule || []).map(sch => `${sch.timing} ${sch.dosage}錠`).join(' / ');
-            }
-
-            const periodText = item.startDate && item.endDate ? `${item.startDate.replace(/-/g, '/')} 〜 ${item.endDate.replace(/-/g, '/')}` : '期間未設定';
+            const scheduleText = (item.schedule || []).map(sch => `${sch.timing} ${sch.dosage}錠`).join(' / ');
+            const periodText = item.startDate && item.endDate ? `${item.startDate.replace(/-/g, '/')} 〜 ${item.endDate.replace(/-/g, '/')}` : '';
             const notesText = item.notes ? `<p class="notes" style="font-size: 0.8em; color: #555; margin-top: 5px;">メモ: ${item.notes}</p>` : '';
 
             li.innerHTML = `
@@ -51,11 +38,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     <strong>${item.name}</strong><br>
                     在庫: ${item.stock}錠<br>
                     <small>${scheduleText}</small><br>
-                    <small>${item.isTonpuku ? '' : `服用期間: ${periodText}`}</small>
+                    <small>${item.isTonpuku ? '頓服薬' : `服用期間: ${periodText}`}</small>
                     ${notesText}
                 </div>
-                <div class="actions" style="display:flex; flex-direction:column; gap: 5px;">
-                    ${actionButtons}
+                <div class="actions">
                     <button class="delete-btn sub-btn">削除</button>
                 </div>
             `;
@@ -74,76 +60,77 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="remove-schedule-btn">×</button>
         `;
         scheduleList.appendChild(row);
+        // 行が追加されたらリアルタイム計算を実行
+        row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateEndDateRealtime));
     }
     
-    /** 服用間隔の変更でUIと入力必須項目を切り替え */
+    /** 終了日をリアルタイムで計算・表示する関数 */
+    function calculateEndDateRealtime() {
+        const totalStock = Number(stockInput.value);
+        const startDateValue = startDateInput.value;
+        const duration = Number(durationInput.value);
+        let dailyDosage = 0;
+        
+        form.querySelectorAll('.schedule-row').forEach(row => {
+            const dosage = row.querySelector('input[name="dosage-amount"]').value;
+            dailyDosage += Number(dosage) || 0;
+        });
+
+        if (intervalTypeSelect.value === 'tonpuku' || !startDateValue || dailyDosage <= 0) {
+            endDateInput.value = "";
+            return;
+        }
+
+        let endDate = new Date(startDateValue + 'T00:00:00');
+        
+        if (duration > 0) {
+            // 期間指定がある場合
+            endDate.setDate(endDate.getDate() + duration - 1);
+        } else if (totalStock > 0) {
+            // 在庫から計算する場合
+            const durationFromStock = Math.floor(totalStock / dailyDosage);
+            if (durationFromStock <= 0) {
+                endDateInput.value = "";
+                return;
+            }
+            endDate.setDate(endDate.getDate() + durationFromStock - 1);
+        } else {
+            endDateInput.value = "";
+            return;
+        }
+        endDateInput.value = endDate.toISOString().slice(0, 10);
+    }
+
+    /** 服用間隔の変更でUIを切り替え */
     function updateFormUI() {
         const isTonpuku = intervalTypeSelect.value === 'tonpuku';
-        
-        tonpukuSection.style.display = isTonpuku ? 'block' : 'none';
         regularSection.style.display = isTonpuku ? 'none' : 'block';
-
-        document.getElementById('start-date').required = !isTonpuku;
-        scheduleList.querySelectorAll('input').forEach(input => {
-            input.required = !isTonpuku;
-        });
+        startDateInput.required = !isTonpuku;
     }
 
     // --- イベントリスナー設定 ---
     intervalTypeSelect.addEventListener('change', () => {
         updateFormUI();
-        scheduleList.innerHTML = '';
-        if (intervalTypeSelect.value !== 'tonpuku') {
-            addScheduleRow();
-        }
+        calculateEndDateRealtime();
     });
 
     addScheduleBtn.addEventListener('click', addScheduleRow);
-
     scheduleList.addEventListener('click', (e) => {
         if (e.target.classList.contains('remove-schedule-btn')) {
             e.target.closest('.schedule-row').remove();
+            calculateEndDateRealtime(); // 行が削除されたら再計算
         }
     });
 
+    // リアルタイム計算用のイベントリスナー
+    [stockInput, startDateInput, durationInput].forEach(input => {
+        input.addEventListener('input', calculateEndDateRealtime);
+    });
+
     list.addEventListener("click", (e) => {
-        const li = e.target.closest("li");
-        if (!li) return;
-        
-        const medId = li.dataset.id;
-        const medIndex = medicines.findIndex(m => m.id === medId);
-        
-        // 削除ボタンの処理
         if (e.target.classList.contains("delete-btn")) {
-            medicines.splice(medIndex, 1);
-            MedicineRepository.save(medicines);
-            renderList();
-        }
-
-        // 頓服薬の「服用」ボタンの処理
-        if (e.target.classList.contains("take-tonpuku-btn")) {
-            if (medIndex === -1) return;
-            const med = medicines[medIndex];
-
-            // 1. 在庫を減らす
-            med.stock = Math.max(0, med.stock - med.tonpukuDosage);
-            
-            // 2. 服用履歴を保存
-            history.push({ 
-                medicineId: medId, 
-                date: new Date().toISOString(), 
-                dosage: med.tonpukuDosage, 
-                timing: '症状時' 
-            });
-            HistoryRepository.save(history);
-
-            // 3. 在庫が0になったかチェック
-            if (med.stock <= 0) {
-                // 在庫が0なら薬のリストから削除
-                medicines.splice(medIndex, 1);
-            }
-            
-            // 4. 薬のリストを保存し、表示を更新
+            const li = e.target.closest("li");
+            medicines = medicines.filter(m => m.id !== li.dataset.id);
             MedicineRepository.save(medicines);
             renderList();
         }
@@ -156,45 +143,46 @@ document.addEventListener("DOMContentLoaded", () => {
         const schedule = [];
         let dailyDosage = 0;
 
-        if (!isTonpuku) {
-            const scheduleRows = form.querySelectorAll('.schedule-row');
-            if (scheduleRows.length === 0) {
-                alert("服用タイミングを少なくとも1つ入力してください。");
+        form.querySelectorAll('.schedule-row').forEach(row => {
+            const timing = row.querySelector('input[name="timing-text"]').value;
+            const dosage = row.querySelector('input[name="dosage-amount"]').value;
+            if (timing && dosage) {
+                const dosageNum = Number(dosage);
+                schedule.push({ timing, dosage: dosageNum });
+                if (!isTonpuku) dailyDosage += dosageNum;
+            }
+        });
+
+        if (schedule.length === 0) {
+            alert("服用タイミングを少なくとも1つ入力してください。");
+            return;
+        }
+
+        const totalStock = Number(stockInput.value);
+        const duration = Number(durationInput.value);
+
+        // 在庫チェック (期間指定がある場合のみ)
+        if (!isTonpuku && duration > 0 && dailyDosage > 0) {
+            const requiredStock = dailyDosage * duration;
+            if (totalStock < requiredStock) {
+                alert(`在庫が不足しています。この期間には${requiredStock}錠必要ですが、在庫は${totalStock}錠です。`);
                 return;
             }
-            scheduleRows.forEach(row => {
-                const timing = row.querySelector('input[name="timing-text"]').value;
-                const dosage = row.querySelector('input[name="dosage-amount"]').value;
-                if (timing && dosage) {
-                    const dosageNum = Number(dosage);
-                    schedule.push({ timing, dosage: dosageNum });
-                    dailyDosage += dosageNum;
-                }
-            });
         }
-
-        const totalStock = Number(form.stock.value);
-        const startDateValue = form["start-date"].value;
-        let endDateValue = "";
-
-        if (!isTonpuku && dailyDosage > 0 && totalStock > 0 && startDateValue) {
-            const durationInDays = Math.floor(totalStock / dailyDosage);
-            const startDate = new Date(startDateValue + 'T00:00:00');
-            startDate.setDate(startDate.getDate() + durationInDays - 1);
-            endDateValue = startDate.toISOString().slice(0, 10);
-            form["end-date"].value = endDateValue;
-        }
+        
+        // 最終的な終了日を確定
+        calculateEndDateRealtime();
+        const finalEndDate = endDateInput.value;
 
         const newMedicine = {
             id: Date.now().toString(),
             name: form.name.value,
             stock: totalStock,
             notes: form.notes.value,
-            startDate: isTonpuku ? null : startDateValue,
-            endDate: isTonpuku ? null : endDateValue,
+            startDate: isTonpuku ? null : startDateInput.value,
+            endDate: isTonpuku ? null : finalEndDate,
             isTonpuku: isTonpuku,
-            tonpukuDosage: isTonpuku ? Number(form['tonpuku-dosage'].value) : undefined,
-            schedule: isTonpuku ? [] : schedule
+            schedule: schedule
         };
 
         medicines.push(newMedicine);
@@ -203,15 +191,13 @@ document.addEventListener("DOMContentLoaded", () => {
         renderList();
         form.reset();
         updateFormUI();
-        if (!isTonpuku) {
-            addScheduleRow();
-        }
+        scheduleList.innerHTML = ""; // フォームのスケジュール行をクリア
+        addScheduleRow(); // 最初の行を追加
+        endDateInput.value = ""; // 終了日表示をクリア
     });
 
     // --- 初期化処理 ---
     updateFormUI();
-    if (intervalTypeSelect.value !== 'tonpuku') {
-        addScheduleRow();
-    }
+    addScheduleRow();
     renderList();
 });
