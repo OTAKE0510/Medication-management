@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             const periodText = item.startDate && item.endDate ? `${item.startDate.replace(/-/g, '/')} 〜 ${item.endDate.replace(/-/g, '/')}` : '期間未設定';
+            const notesText = item.notes ? `<p class="notes">メモ: ${item.notes}</p>` : '';
 
             li.innerHTML = `
                 <div>
@@ -42,6 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     在庫: ${item.stock}錠<br>
                     <small>${scheduleText}</small><br>
                     <small>${item.isTonpuku ? '' : `服用期間: ${periodText}`}</small>
+                    ${notesText}
                 </div>
                 <div class="actions">
                     <button class="delete-btn">削除</button>
@@ -64,22 +66,30 @@ document.addEventListener("DOMContentLoaded", () => {
         scheduleList.appendChild(row);
     }
     
-    /** 服用間隔の変更でUIを切り替え */
+    /** 服用間隔の変更でUIと入力必須項目を切り替え */
     function updateFormUI() {
         const isTonpuku = intervalTypeSelect.value === 'tonpuku';
+        
         tonpukuSection.style.display = isTonpuku ? 'block' : 'none';
         regularSection.style.display = isTonpuku ? 'none' : 'block';
 
-        const startDateInput = document.getElementById('start-date');
-        if (isTonpuku) {
-            startDateInput.required = false;
-        } else {
-            startDateInput.required = true;
-        }
+        // 頓服薬の選択状態に応じて、必須属性(required)を動的に切り替える
+        document.getElementById('start-date').required = !isTonpuku;
+        scheduleList.querySelectorAll('input').forEach(input => {
+            input.required = !isTonpuku;
+        });
     }
 
     // --- イベントリスナー設定 ---
-    intervalTypeSelect.addEventListener('change', updateFormUI);
+    intervalTypeSelect.addEventListener('change', () => {
+        updateFormUI();
+        // スケジュール行を一旦クリアし、必要なら再追加
+        scheduleList.innerHTML = '';
+        if (intervalTypeSelect.value !== 'tonpuku') {
+            addScheduleRow();
+        }
+    });
+
     addScheduleBtn.addEventListener('click', addScheduleRow);
 
     scheduleList.addEventListener('click', (e) => {
@@ -126,21 +136,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const startDateValue = form["start-date"].value;
         let endDateValue = "";
 
-        // 終了日の自動計算 (毎日服用の場合のみ)
         if (!isTonpuku && dailyDosage > 0 && totalStock > 0 && startDateValue) {
             const durationInDays = Math.floor(totalStock / dailyDosage);
-            const startDate = new Date(startDateValue + 'T00:00:00'); // タイムゾーン問題を避ける
+            const startDate = new Date(startDateValue + 'T00:00:00');
             startDate.setDate(startDate.getDate() + durationInDays - 1);
             endDateValue = startDate.toISOString().slice(0, 10);
-            form["end-date"].value = endDateValue; // フォームにも反映
+            form["end-date"].value = endDateValue;
         }
 
         const newMedicine = {
             id: Date.now().toString(),
             name: form.name.value,
             stock: totalStock,
-            startDate: startDateValue,
-            endDate: endDateValue,
+            notes: form.notes.value, // メモを保存
+            startDate: isTonpuku ? null : startDateValue,
+            endDate: isTonpuku ? null : endDateValue,
             isTonpuku: isTonpuku,
             tonpukuDosage: isTonpuku ? Number(form['tonpuku-dosage'].value) : undefined,
             schedule: isTonpuku ? [] : schedule
@@ -151,11 +161,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         renderList();
         form.reset();
-        updateFormUI(); // フォームUIを初期状態に戻す
+        updateFormUI();
+        // フォームリセット後に最初のスケジュール行を再追加
+        if (!isTonpuku) {
+            addScheduleRow();
+        }
     });
 
     // --- 初期化処理 ---
     updateFormUI();
-    addScheduleRow();
+    if (intervalTypeSelect.value !== 'tonpuku') {
+        addScheduleRow();
+    }
     renderList();
 });
