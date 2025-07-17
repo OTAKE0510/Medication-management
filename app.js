@@ -85,24 +85,29 @@ document.addEventListener("DOMContentLoaded", () => {
                     ${actionButtons}
                     <hr style="margin: 8px 0; border: 1px solid #eee;">
                     <button class="edit-btn sub-btn" data-id="${item.id}">編集</button>
-                    <button class="delete-btn sub-btn" data-id="${item.id}">削除</button>
+                    <button class="delete-btn sub-btn" data-id="${item.id}">服用終了</button>
                 </div>
             `;
             list.appendChild(li);
         });
     }
 
-    /** 過去の薬リストを描画 */
+    /** 過去の薬リストを描画 (★★★ 変更点 ★★★) */
     function renderHistoryList() {
         historyList.innerHTML = "";
         pastMedicines.forEach(item => {
             const li = document.createElement("li");
             const periodText = item.startDate && item.endDate ? `${item.startDate.replace(/-/g, '/')} 〜 ${item.endDate.replace(/-/g, '/')}` : '服用期間データなし';
+            
             li.innerHTML = `
                 <div>
                     <strong>${item.name}</strong><br>
                     <small>服用期間: ${periodText}</small>
-                </div>`;
+                </div>
+                <div class="actions">
+                    <button class="delete-history-btn sub-btn" data-id="${item.id}">完全に削除</button>
+                </div>
+            `;
             historyList.appendChild(li);
         });
     }
@@ -285,6 +290,22 @@ document.addEventListener("DOMContentLoaded", () => {
             handleDoseAction(sch.timing, sch.dosage, 'taken');
         }
     });
+
+    // ★★★ 追加: 履歴リストの削除ボタン用イベントリスナー ★★★
+    historyList.addEventListener("click", (e) => {
+        if (e.target.classList.contains("delete-history-btn")) {
+            const medicineId = e.target.dataset.id;
+            const medicine = pastMedicines.find(m => m.id === medicineId);
+            
+            // 削除前に確認ダイアログを表示
+            if (confirm(`「${medicine.name}」の履歴を完全に削除しますか？この操作は元に戻せません。`)) {
+                pastMedicines = pastMedicines.filter(m => m.id !== medicineId);
+                PastMedicineRepository.save(pastMedicines);
+                renderHistoryList();
+            }
+        }
+    });
+
 
     cancelEditBtn.addEventListener('click', () => {
         form.reset();
