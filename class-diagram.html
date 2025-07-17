@@ -66,7 +66,7 @@ classDiagram
         +string 名前
         +string 種別  // サプリ、処方薬、常備薬
         +string 用量
-        +string 頻度
+        +string 頻度  // 例：1日2回、1日3回など
         +DateTime 開始日
         +DateTime 終了日
         +string 効果
@@ -75,6 +75,7 @@ classDiagram
         +void 登録する()
         +void 編集する()
         +void 削除する()
+        +void 飲むタイミング設定(朝, 昼, 夕, 晩, 食前, 食後, 毎食後, 任意)
     }
 
     class リマインダー {
@@ -84,6 +85,8 @@ classDiagram
         +void 通知する()
         +void スケジュール設定()
         +void スヌーズ()
+        +void 飲むタイミング通知(朝, 昼, 夕, 晩, 食前, 食後, 毎食後, 任意)
+        +void Googleカレンダー連携()
     }
 
     class 服薬履歴 {
@@ -107,6 +110,7 @@ classDiagram
     class 通知サービス {
         +void 通知送信()
         +void 遅延確認()
+        +void Googleカレンダーイベント作成()
     }
 
     class データ保存 {
