@@ -168,14 +168,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- イベントリスナー設定 ---
 
-    /** 服用間隔の変更でUIを切り替え */
+    /** 服用間隔の変更でUIを切り替え（頓服薬時は開始日・終了日も非表示） */
     intervalTypeSelect.addEventListener('change', () => {
         const isTonpuku = intervalTypeSelect.value === 'tonpuku';
         tonpukuSection.style.display = isTonpuku ? '' : 'none';
         scheduleSection.style.display = isTonpuku ? 'none' : '';
-        scheduleList.innerHTML = ''; // 行をリセット
+        scheduleList.innerHTML = '';
+        // 開始日・終了日欄の表示制御
+        const startDateRow = document.getElementById('start-date').closest('div') || document.getElementById('start-date').parentElement;
+        const endDateRow = document.getElementById('end-date').closest('div') || document.getElementById('end-date').parentElement;
+        if (startDateRow) startDateRow.style.display = isTonpuku ? 'none' : '';
+        if (endDateRow) endDateRow.style.display = isTonpuku ? 'none' : '';
         if (!isTonpuku) {
-            addScheduleRow(); // 頓服でなければ最初の行を追加
+            addScheduleRow();
         }
     });
 
