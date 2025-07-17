@@ -1,46 +1,127 @@
 body {
-    font-family: sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
     background-color: #f4f8fc;
     padding: 20px;
+    color: #333;
 }
 
 h1, h2 {
     color: #336699;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 10px;
 }
 
-form {
-    margin-bottom: 20px;
+.card {
     background-color: #fff;
-    padding: 15px;
+    margin-bottom: 20px;
+    padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
 }
 
-input, button {
-    margin: 5px 0;
-    padding: 8px;
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select {
     width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
     box-sizing: border-box;
+    font-size: 1em;
+}
+
+.required {
+    color: #d9534f;
+}
+
+.schedule-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.schedule-row input {
+    margin: 0;
 }
 
 button {
-    background-color: #3399cc;
     color: white;
     border: none;
     cursor: pointer;
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-size: 1em;
+    transition: background-color 0.2s;
 }
 
-button:hover {
+.main-btn {
+    width: 100%;
+    background-color: #3399cc;
+    font-weight: bold;
+}
+.main-btn:hover {
     background-color: #2a89b9;
+}
+
+.sub-btn {
+    width: auto;
+    background-color: #777;
+    font-size: 0.8em;
+    padding: 5px 10px;
+}
+.sub-btn:hover {
+    background-color: #666;
+}
+
+.remove-schedule-btn {
+    background-color: #d9534f;
+    padding: 4px 8px;
+    width: auto;
+    font-size: 0.8em;
+}
+.remove-schedule-btn:hover {
+    background-color: #c9302c;
+}
+
+
+#medicine-list {
+    list-style: none;
+    padding: 0;
 }
 
 #medicine-list li {
     background: #fff;
-    padding: 10px;
-    margin: 5px 0;
-    border-left: 4px solid #66c;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-left: 5px solid #3399cc;
     border-radius: 5px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+#medicine-list .actions {
+    display: flex;
+    gap: 10px;
+}
+
+#medicine-list .actions .delete-btn {
+    background-color: #f0ad4e;
+}
+#medicine-list .actions .delete-btn:hover {
+    background-color: #ec971f;
 }

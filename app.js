@@ -1,21 +1,7 @@
-// app.js (完成版)
-
-// --- 定数定義 ---
-const CATEGORY = ["サプリ", "処方薬", "常備薬", "頓服薬"];
-const TIMING = ["朝食後", "昼食後", "夕食後", "晩", "食前", "食後", "毎食後", "就寝前", "症状時"];
-
 // --- リポジトリ (データ操作) ---
 const MedicineRepository = {
     get: () => JSON.parse(localStorage.getItem("medicines")) || [],
     save: (data) => localStorage.setItem("medicines", JSON.stringify(data))
-};
-const HistoryRepository = {
-    get: () => JSON.parse(localStorage.getItem("history")) || [],
-    save: (data) => localStorage.setItem("history", JSON.stringify(data))
-};
-const ConditionMemoRepository = {
-    get: () => JSON.parse(localStorage.getItem("conditionMemos")) || [],
-    save: (data) => localStorage.setItem("conditionMemos", JSON.stringify(data))
 };
 
 // --- アプリケーションのメイン処理 ---
@@ -23,40 +9,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- 要素の取得 ---
     const form = document.getElementById("medicine-form");
     const list = document.getElementById("medicine-list");
-    const memoList = document.getElementById("condition-memo-list");
     const scheduleList = document.getElementById('schedule-list');
     const addScheduleBtn = document.getElementById('add-schedule-btn');
     const intervalTypeSelect = document.getElementById('interval-type');
     const tonpukuSection = document.getElementById('tonpuku-section');
-    const scheduleSection = document.getElementById('schedule-section');
-
+    const regularSection = document.getElementById('regular-section');
 
     // --- データの読み込み ---
     let medicines = MedicineRepository.get();
-    let history = HistoryRepository.get();
-    let conditionMemos = ConditionMemoRepository.get();
 
-    // --- Service Worker & 通知 ---
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('Service Worker registered:', reg))
-    // --- 通知機能廃止 ---
-    /** 在庫警告をチェックして通知 */
-    function checkStockWarning(med) {
-        if (med.stockWarningThreshold && med.stock <= med.stockWarningThreshold) {
-            if (Notification.permission === "granted") {
-                new Notification(`在庫警告: 「${med.name}」`, {
-                    body: `残量が ${med.stock}錠 です。補充してください。`
-                });
-            }
-        }
-    }
-
-    /** 指定した薬・タイミングで今日服用済みか判定 */
-    function isTakenToday(medId, timing) {
-        const todayStr = new Date().toISOString().slice(0, 10);
-        return history.some(h => h.medicineId === medId && h.date.startsWith(todayStr) && h.timing === timing);
-    }
+    // --- UI更新関数 ---
 
     /** 薬リストを描画 */
     function renderList() {
@@ -65,31 +27,23 @@ document.addEventListener("DOMContentLoaded", () => {
             const li = document.createElement("li");
             li.dataset.id = item.id;
 
-            let actionButtons = '';
+            let scheduleText = '';
             if (item.isTonpuku) {
-                actionButtons = `<button class="take-btn">頓服薬を飲む</button>`;
+                scheduleText = `頓服薬 (1回 ${item.tonpukuDosage}錠)`;
             } else {
-                actionButtons = (item.schedule || []).map((sch, idx) =>
-                    `<button class="take-schedule-btn" data-timing="${sch.timing}" ${isTakenToday(item.id, sch.timing) ? "disabled" : ""}>
-                        ${sch.timing}の分を服用
-                    </button>`
-                ).join(" ");
+                scheduleText = (item.schedule || []).map(sch => `${sch.timing} ${sch.dosage}錠`).join(' / ');
             }
+
+            const periodText = item.startDate && item.endDate ? `${item.startDate.replace(/-/g, '/')} 〜 ${item.endDate.replace(/-/g, '/')}` : '期間未設定';
 
             li.innerHTML = `
                 <div>
-                    <strong>${item.name}</strong> (${item.category})<br>
+                    <strong>${item.name}</strong><br>
                     在庫: ${item.stock}錠<br>
-                    <small>
-                        ${item.isTonpuku
-                            ? `頓服薬 (1回 ${item.tonpukuDosage}錠)`
-                            : (item.schedule || []).map(sch => `${sch.timing} ${sch.dosage}錠`).join(' / ')
-                        }
-                    </small>
+                    <small>${scheduleText}</small><br>
+                    <small>${item.isTonpuku ? '' : `服用期間: ${periodText}`}</small>
                 </div>
                 <div class="actions">
-                    <button class="memo-btn">体調メモ</button>
-                    ${actionButtons}
                     <button class="delete-btn">削除</button>
                 </div>
             `;
@@ -97,174 +51,96 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    /** 体調メモリストを描画 */
-    function renderMemoList() {
-        memoList.innerHTML = "";
-        conditionMemos.forEach(memo => {
-            const med = medicines.find(m => m.id === memo.medicineId);
-            const li = document.createElement("li");
-            li.innerHTML = `<strong>${med ? med.name : "(削除済み)"}</strong> [${memo.date}]<br>${memo.memo}`;
-            memoList.appendChild(li);
-        });
-    }
-
-    /** スケジュール入力行を1つ追加（頓服薬の場合は通知時刻欄なし） */
+    /** スケジュール入力行を1つ追加 */
     function addScheduleRow() {
-        const isTonpuku = intervalTypeSelect.value === 'tonpuku';
         const row = document.createElement('div');
         row.className = 'schedule-row';
         row.innerHTML = `
             <input type="text" name="timing-text" placeholder="例：朝食後" required>
-            <input type="number" name="dosage-amount" min="1" value="1" required> 錠
-            ${isTonpuku ? '' : '<input type="time" name="notify-time" required>'}
+            <input type="number" name="dosage-amount" min="1" value="1" required style="width: 80px; flex: 0 1 auto;">
+            <span>錠</span>
             <button type="button" class="remove-schedule-btn">×</button>
         `;
         scheduleList.appendChild(row);
     }
+    
+    /** 服用間隔の変更でUIを切り替え */
+    function updateFormUI() {
+        const isTonpuku = intervalTypeSelect.value === 'tonpuku';
+        tonpukuSection.style.display = isTonpuku ? 'block' : 'none';
+        regularSection.style.display = isTonpuku ? 'none' : 'block';
 
+        const startDateInput = document.getElementById('start-date');
+        if (isTonpuku) {
+            startDateInput.required = false;
+        } else {
+            startDateInput.required = true;
+        }
+    }
 
     // --- イベントリスナー設定 ---
-
-    /** 服用間隔の変更でUIを切り替え（頓服薬時は開始日・終了日も非表示） */
-    intervalTypeSelect.addEventListener('change', () => {
-        const isTonpuku = intervalTypeSelect.value === 'tonpuku';
-        tonpukuSection.style.display = isTonpuku ? '' : 'none';
-        scheduleSection.style.display = isTonpuku ? 'none' : '';
-        scheduleList.innerHTML = '';
-        // 開始日・終了日欄の表示制御
-        const startDateRow = document.getElementById('start-date').closest('div') || document.getElementById('start-date').parentElement;
-        const endDateRow = document.getElementById('end-date').closest('div') || document.getElementById('end-date').parentElement;
-        if (startDateRow) startDateRow.style.display = isTonpuku ? 'none' : '';
-        if (endDateRow) endDateRow.style.display = isTonpuku ? 'none' : '';
-        if (!isTonpuku) {
-            addScheduleRow();
-        }
-    });
-
-    /** [+]ボタンでスケジュール行を追加 */
+    intervalTypeSelect.addEventListener('change', updateFormUI);
     addScheduleBtn.addEventListener('click', addScheduleRow);
 
-    /** [×]ボタンでスケジュール行を削除 */
     scheduleList.addEventListener('click', (e) => {
         if (e.target.classList.contains('remove-schedule-btn')) {
             e.target.closest('.schedule-row').remove();
         }
     });
 
-    /** 薬リスト内のボタンクリック処理 */
     list.addEventListener("click", (e) => {
-        const li = e.target.closest("li");
-        if (!li) return;
-
-        const medId = li.dataset.id;
-        const medIndex = medicines.findIndex(m => m.id === medId);
-        if (medIndex === -1) return;
-        const med = medicines[medIndex];
-
-        // 削除ボタン
         if (e.target.classList.contains("delete-btn")) {
-            medicines.splice(medIndex, 1);
+            const li = e.target.closest("li");
+            const medId = li.dataset.id;
+            medicines = medicines.filter(m => m.id !== medId);
             MedicineRepository.save(medicines);
             renderList();
-        }
-
-        // スケジュールごとの服用ボタン
-        if (e.target.classList.contains("take-schedule-btn")) {
-            const timing = e.target.dataset.timing;
-            const sch = med.schedule.find(s => s.timing === timing);
-            if (!sch) return;
-
-            med.stock = Math.max(0, med.stock - sch.dosage);
-            checkStockWarning(med);
-            MedicineRepository.save(medicines);
-
-            history.push({ medicineId: medId, date: new Date().toISOString(), dosage: sch.dosage, timing: sch.timing });
-            HistoryRepository.save(history);
-            renderList();
-        }
-
-        // 頓服薬の服用ボタン
-        if (e.target.classList.contains("take-btn")) {
-            med.stock = Math.max(0, med.stock - med.tonpukuDosage);
-            checkStockWarning(med);
-            MedicineRepository.save(medicines);
-
-            history.push({ medicineId: medId, date: new Date().toISOString(), dosage: med.tonpukuDosage, timing: '症状時' });
-            HistoryRepository.save(history);
-            renderList();
-        }
-
-        // 体調メモボタン
-        if (e.target.classList.contains("memo-btn")) {
-            // --- 追加: <dialog>を使った体調メモ入力UI ---
-            let dialog = document.getElementById("memo-dialog");
-            if (!dialog) {
-                dialog = document.createElement("dialog");
-                dialog.id = "memo-dialog";
-                dialog.innerHTML = `
-                  <form method="dialog" id="memo-dialog-form">
-                    <h3>体調・副作用メモ</h3>
-                    <textarea id="memo-dialog-text" rows="4" style="width:100%" placeholder="体調・副作用などを記録してください"></textarea><br>
-                    <button id="memo-dialog-save" type="submit">保存</button>
-                    <button id="memo-dialog-cancel" type="button">キャンセル</button>
-                  </form>
-                `;
-                document.body.appendChild(dialog);
-            }
-            dialog.showModal();
-            const form = dialog.querySelector("#memo-dialog-form");
-            const saveBtn = dialog.querySelector("#memo-dialog-save");
-            const cancelBtn = dialog.querySelector("#memo-dialog-cancel");
-            cancelBtn.onclick = () => dialog.close();
-            form.onsubmit = (ev) => {
-                ev.preventDefault();
-                const memoText = dialog.querySelector("#memo-dialog-text").value.trim();
-                if (memoText) {
-                    conditionMemos.push({
-                        id: Date.now().toString() + Math.random().toString(36).slice(2),
-                        medicineId: medId,
-                        date: new Date().toLocaleString(),
-                        memo: memoText
-                    });
-                    ConditionMemoRepository.save(conditionMemos);
-                    renderMemoList();
-                }
-                dialog.close();
-            };
-            // --- 追加ここまで ---
         }
     });
 
-    /** 薬登録フォームの送信処理 */
     form.addEventListener("submit", (e) => {
         e.preventDefault();
 
         const isTonpuku = intervalTypeSelect.value === 'tonpuku';
         const schedule = [];
+        let dailyDosage = 0;
+
         if (!isTonpuku) {
             const scheduleRows = form.querySelectorAll('.schedule-row');
-            scheduleRows.forEach(row => {
-                const timing = row.querySelector('input[name="timing-text"]').value;
-                const dosage = row.querySelector('input[name="dosage-amount"]').value;
-                const notifyTime = row.querySelector('input[name="notify-time"]').value;
-                if (timing && dosage && notifyTime) {
-                    schedule.push({ timing, dosage: Number(dosage), notifyTime });
-                }
-            });
-            if (schedule.length === 0) {
+            if (scheduleRows.length === 0) {
                 alert("服用タイミングを少なくとも1つ入力してください。");
                 return;
             }
+            scheduleRows.forEach(row => {
+                const timing = row.querySelector('input[name="timing-text"]').value;
+                const dosage = row.querySelector('input[name="dosage-amount"]').value;
+                if (timing && dosage) {
+                    const dosageNum = Number(dosage);
+                    schedule.push({ timing, dosage: dosageNum });
+                    dailyDosage += dosageNum;
+                }
+            });
+        }
+
+        const totalStock = Number(form.stock.value);
+        const startDateValue = form["start-date"].value;
+        let endDateValue = "";
+
+        // 終了日の自動計算 (毎日服用の場合のみ)
+        if (!isTonpuku && dailyDosage > 0 && totalStock > 0 && startDateValue) {
+            const durationInDays = Math.floor(totalStock / dailyDosage);
+            const startDate = new Date(startDateValue + 'T00:00:00'); // タイムゾーン問題を避ける
+            startDate.setDate(startDate.getDate() + durationInDays - 1);
+            endDateValue = startDate.toISOString().slice(0, 10);
+            form["end-date"].value = endDateValue; // フォームにも反映
         }
 
         const newMedicine = {
             id: Date.now().toString(),
             name: form.name.value,
-            category: form.category.value,
-            stock: Number(form.stock.value),
-            stockWarningThreshold: Number(form.stockWarningThreshold.value),
-            startDate: form["start-date"].value,
-            endDate: form["end-date"].value,
+            stock: totalStock,
+            startDate: startDateValue,
+            endDate: endDateValue,
             isTonpuku: isTonpuku,
             tonpukuDosage: isTonpuku ? Number(form['tonpuku-dosage'].value) : undefined,
             schedule: isTonpuku ? [] : schedule
@@ -273,21 +149,13 @@ document.addEventListener("DOMContentLoaded", () => {
         medicines.push(newMedicine);
         MedicineRepository.save(medicines);
 
-        // 頓服薬でなければ通知を予約
-        if (!isTonpuku) {
-            newMedicine.schedule.forEach(sch => {
-                scheduleNextNotification(newMedicine, sch);
-            });
-        }
-
         renderList();
         form.reset();
-        intervalTypeSelect.dispatchEvent(new Event('change')); // フォームUIを初期状態に戻す
+        updateFormUI(); // フォームUIを初期状態に戻す
     });
 
-
     // --- 初期化処理 ---
-    intervalTypeSelect.dispatchEvent(new Event('change')); // 起動時にUIを正しく設定
+    updateFormUI();
+    addScheduleRow();
     renderList();
-    renderMemoList();
 });
