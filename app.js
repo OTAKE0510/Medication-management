@@ -3,6 +3,10 @@ const MedicineRepository = {
     get: () => JSON.parse(localStorage.getItem("medicines")) || [],
     save: (data) => localStorage.setItem("medicines", JSON.stringify(data))
 };
+const HistoryRepository = {
+    get: () => JSON.parse(localStorage.getItem("history")) || [],
+    save: (data) => localStorage.setItem("history", JSON.stringify(data))
+};
 
 // --- アプリケーションのメイン処理 ---
 document.addEventListener("DOMContentLoaded", () => {
@@ -17,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- データの読み込み ---
     let medicines = MedicineRepository.get();
+    let history = HistoryRepository.get();
 
     // --- UI更新関数 ---
 
@@ -28,14 +33,18 @@ document.addEventListener("DOMContentLoaded", () => {
             li.dataset.id = item.id;
 
             let scheduleText = '';
+            let actionButtons = ''; // アクションボタンを初期化
+
             if (item.isTonpuku) {
                 scheduleText = `頓服薬 (1回 ${item.tonpukuDosage}錠)`;
+                // 頓服薬用の「服用」ボタンを追加
+                actionButtons = `<button class="take-tonpuku-btn main-btn" ${item.stock <= 0 ? "disabled" : ""}>服用</button>`;
             } else {
                 scheduleText = (item.schedule || []).map(sch => `${sch.timing} ${sch.dosage}錠`).join(' / ');
             }
 
             const periodText = item.startDate && item.endDate ? `${item.startDate.replace(/-/g, '/')} 〜 ${item.endDate.replace(/-/g, '/')}` : '期間未設定';
-            const notesText = item.notes ? `<p class="notes">メモ: ${item.notes}</p>` : '';
+            const notesText = item.notes ? `<p class="notes" style="font-size: 0.8em; color: #555; margin-top: 5px;">メモ: ${item.notes}</p>` : '';
 
             li.innerHTML = `
                 <div>
@@ -45,8 +54,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     <small>${item.isTonpuku ? '' : `服用期間: ${periodText}`}</small>
                     ${notesText}
                 </div>
-                <div class="actions">
-                    <button class="delete-btn">削除</button>
+                <div class="actions" style="display:flex; flex-direction:column; gap: 5px;">
+                    ${actionButtons}
+                    <button class="delete-btn sub-btn">削除</button>
                 </div>
             `;
             list.appendChild(li);
@@ -73,7 +83,6 @@ document.addEventListener("DOMContentLoaded", () => {
         tonpukuSection.style.display = isTonpuku ? 'block' : 'none';
         regularSection.style.display = isTonpuku ? 'none' : 'block';
 
-        // 頓服薬の選択状態に応じて、必須属性(required)を動的に切り替える
         document.getElementById('start-date').required = !isTonpuku;
         scheduleList.querySelectorAll('input').forEach(input => {
             input.required = !isTonpuku;
@@ -83,7 +92,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- イベントリスナー設定 ---
     intervalTypeSelect.addEventListener('change', () => {
         updateFormUI();
-        // スケジュール行を一旦クリアし、必要なら再追加
         scheduleList.innerHTML = '';
         if (intervalTypeSelect.value !== 'tonpuku') {
             addScheduleRow();
@@ -99,10 +107,43 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     list.addEventListener("click", (e) => {
+        const li = e.target.closest("li");
+        if (!li) return;
+        
+        const medId = li.dataset.id;
+        const medIndex = medicines.findIndex(m => m.id === medId);
+        
+        // 削除ボタンの処理
         if (e.target.classList.contains("delete-btn")) {
-            const li = e.target.closest("li");
-            const medId = li.dataset.id;
-            medicines = medicines.filter(m => m.id !== medId);
+            medicines.splice(medIndex, 1);
+            MedicineRepository.save(medicines);
+            renderList();
+        }
+
+        // 頓服薬の「服用」ボタンの処理
+        if (e.target.classList.contains("take-tonpuku-btn")) {
+            if (medIndex === -1) return;
+            const med = medicines[medIndex];
+
+            // 1. 在庫を減らす
+            med.stock = Math.max(0, med.stock - med.tonpukuDosage);
+            
+            // 2. 服用履歴を保存
+            history.push({ 
+                medicineId: medId, 
+                date: new Date().toISOString(), 
+                dosage: med.tonpukuDosage, 
+                timing: '症状時' 
+            });
+            HistoryRepository.save(history);
+
+            // 3. 在庫が0になったかチェック
+            if (med.stock <= 0) {
+                // 在庫が0なら薬のリストから削除
+                medicines.splice(medIndex, 1);
+            }
+            
+            // 4. 薬のリストを保存し、表示を更新
             MedicineRepository.save(medicines);
             renderList();
         }
@@ -148,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
             id: Date.now().toString(),
             name: form.name.value,
             stock: totalStock,
-            notes: form.notes.value, // メモを保存
+            notes: form.notes.value,
             startDate: isTonpuku ? null : startDateValue,
             endDate: isTonpuku ? null : endDateValue,
             isTonpuku: isTonpuku,
@@ -162,7 +203,6 @@ document.addEventListener("DOMContentLoaded", () => {
         renderList();
         form.reset();
         updateFormUI();
-        // フォームリセット後に最初のスケジュール行を再追加
         if (!isTonpuku) {
             addScheduleRow();
         }
