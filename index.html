@@ -22,7 +22,15 @@
                 <option value="常備薬">常備薬</option>
                 <option value="その他">その他</option>
             </select><br>
-            <label><input type="checkbox" id="isTonpuku">頓服薬（症状時のみ服用）<span style="color: #888;">※症状が出たときだけ飲む薬</span></label><br>
+            <label><input type="checkbox" id="isTonpuku">頓服薬（症状時のみ服用）<span style="color: #888;">※症状が出たときだけ飲む薬。チェックすると下記項目が専用入力になります。</span></label><br>
+
+            <label for="interval-type">服薬間隔</label><br>
+            <select id="interval-type" name="interval-type" required>
+              <option value="day">日ごと</option>
+              <option value="week">週ごと</option>
+              <option value="month">月ごと</option>
+              <option value="tonpuku">症状時のみ（頓服薬）</option>
+            </select><br>
 
             <label for="stock">薬の総在庫（錠数）</label><br>
             <input type="number" id="stock" min="0" placeholder="例：30" required><br>
@@ -31,7 +39,7 @@
             <input type="number" id="stockWarningThreshold" min="0" placeholder="例：10"><br>
 
             <div id="schedule-section">
-              <label>服用タイミング・服用量</label><br>
+              <label>服用タイミング・服用量・通知時刻</label><br>
               <div id="schedule-list"></div>
               <button type="button" id="add-schedule-btn">+ 服用タイミングを追加</button><br>
             </div>
@@ -44,75 +52,11 @@
               <input type="number" id="tonpuku-dosage" min="1" value="1"><br>
             </div>
 
-            <label for="interval-type">服薬間隔</label><br>
-            <select id="interval-type" name="interval-type" required>
-              <option value="day">日ごと</option>
-              <option value="week">週ごと</option>
-              <option value="month">月ごと</option>
-              <option value="tonpuku">症状時のみ（頓服薬）</option>
-            </select><br>
-
-            <div id="interval-day" style="display:none;">
-              <label>何日ごとに服用：</label>
-              <select id="interval-day-count">
-                <option value="1">毎日</option>
-                <option value="2">2日ごと</option>
-                <option value="3">3日ごと</option>
-                <option value="4">4日ごと</option>
-                <option value="5">5日ごと</option>
-                <option value="6">6日ごと</option>
-              </select>
-            </div>
-
-            <div id="interval-week" style="display:none;">
-              <label>何週間ごとに服用：</label>
-              <select id="interval-week-count">
-                <option value="1">毎週</option>
-                <option value="2">2週間ごと</option>
-                <option value="3">3週間ごと</option>
-                <option value="4">4週間ごと</option>
-              </select><br>
-              <label>服用する曜日：</label>
-              <label><input type="checkbox" name="weekday" value="mon">月</label>
-              <label><input type="checkbox" name="weekday" value="tue">火</label>
-              <label><input type="checkbox" name="weekday" value="wed">水</label>
-              <label><input type="checkbox" name="weekday" value="thu">木</label>
-              <label><input type="checkbox" name="weekday" value="fri">金</label>
-              <label><input type="checkbox" name="weekday" value="sat">土</label>
-              <label><input type="checkbox" name="weekday" value="sun">日</label>
-            </div>
-
-            <div id="interval-month" style="display:none;">
-              <label>毎月の何日：</label>
-              <input type="number" id="interval-month-day" min="1" max="31" placeholder="例：15"><br>
-            </div>
-
-            <!-- 服用タイミングは動的追加UIに統合 -->
-    <!-- 体調メモダイアログ -->
-    <dialog id="memo-dialog">
-      <form method="dialog" id="memo-dialog-form">
-        <h3>体調・副作用メモ</h3>
-        <input type="hidden" id="memo-medicine-id">
-        <textarea id="memo-text" rows="4" style="width:100%" placeholder="例：頭痛がした、眠気が強い等"></textarea><br>
-        <button type="submit">保存</button>
-        <button type="button" id="memo-cancel-btn">キャンセル</button>
-      </form>
-    </dialog>
-    <section id="memo-section">
-      <h2>体調メモ一覧</h2>
-      <ul id="condition-memo-list"></ul>
-    </section>
-
             <label for="start-date">開始日</label><br>
             <input type="date" id="start-date" required><br>
 
             <label for="end-date">終了日</label><br>
             <input type="date" id="end-date"><br>
-
-            <label for="notes">効果・副作用など</label><br>
-            <input type="text" id="notes" placeholder="例：頭痛改善、眠気が出る等"><br>
-            <label for="notify-time">通知時刻（00:00～23:59）</label><br>
-            <input type="time" id="notify-time" min="00:00" max="23:59"><br>
 
             <button type="submit">追加</button>
     <script>
@@ -148,14 +92,9 @@
         return ["朝食後", "昼食後", "夕食後", "晩", "就寝前", "症状時"];
       }
       function addScheduleRow() {
-        const timingOptions = getTimingOptions();
         const row = document.createElement('div');
         row.className = 'schedule-row';
-        row.innerHTML = `<select name="timing">
-          ${timingOptions.map(t => `<option value="${t}">${t}</option>`).join('')}
-        </select>
-        <input type="number" name="dosage" min="1" value="1" style="width:60px"> 錠
-        <button type="button" class="remove-schedule-btn">削除</button>`;
+        row.innerHTML = `<input type="text" name="timing" placeholder="例：朝、昼、夕、晩、食前、食後など自由記入"><input type="number" name="dosage" min="1" value="1" style="width:60px"> 錠 <input type="time" name="notifyTime" min="00:00" max="23:59"> <button type="button" class="remove-schedule-btn">削除</button>`;
         scheduleList.appendChild(row);
       }
       addBtn.addEventListener('click', addScheduleRow);
