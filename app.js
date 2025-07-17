@@ -60,12 +60,12 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="remove-schedule-btn">×</button>
         `;
         scheduleList.appendChild(row);
-        // 行が追加されたらリアルタイム計算を実行
         row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateEndDateRealtime));
     }
     
-    /** 終了日をリアルタイムで計算・表示する関数 */
+    /** 終了日をリアルタイムで計算・表示する関数 (修正版) */
     function calculateEndDateRealtime() {
+        // 現在のフォームの値を取得
         const totalStock = Number(stockInput.value);
         const startDateValue = startDateInput.value;
         const duration = Number(durationInput.value);
@@ -76,16 +76,19 @@ document.addEventListener("DOMContentLoaded", () => {
             dailyDosage += Number(dosage) || 0;
         });
 
+        // 計算に必要な値が揃っていない、または頓服薬の場合は終了日をクリアして処理を終える
         if (intervalTypeSelect.value === 'tonpuku' || !startDateValue || dailyDosage <= 0) {
             endDateInput.value = "";
             return;
         }
 
-        let endDate = new Date(startDateValue + 'T00:00:00');
+        // new Date()がUTCとして解釈するのを防ぐため、明示的にローカルタイムゾーンとして扱う
+        const startDate = new Date(startDateValue + 'T00:00:00');
+        let endDate = new Date(startDate); // 開始日のコピーを作成
         
         if (duration > 0) {
             // 期間指定がある場合
-            endDate.setDate(endDate.getDate() + duration - 1);
+            endDate.setDate(startDate.getDate() + duration - 1);
         } else if (totalStock > 0) {
             // 在庫から計算する場合
             const durationFromStock = Math.floor(totalStock / dailyDosage);
@@ -93,19 +96,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 endDateInput.value = "";
                 return;
             }
-            endDate.setDate(endDate.getDate() + durationFromStock - 1);
+            endDate.setDate(startDate.getDate() + durationFromStock - 1);
         } else {
             endDateInput.value = "";
             return;
         }
-        endDateInput.value = endDate.toISOString().slice(0, 10);
+        
+        // ★★★ 修正点 ★★★
+        // toISOString()を使わず、ローカルの年月日を直接取得してフォーマットする
+        const year = endDate.getFullYear();
+        const month = String(endDate.getMonth() + 1).padStart(2, '0'); // 月は0から始まるため+1
+        const day = String(endDate.getDate()).padStart(2, '0');
+        
+        endDateInput.value = `${year}-${month}-${day}`;
     }
 
     /** 服用間隔の変更でUIを切り替え */
     function updateFormUI() {
         const isTonpuku = intervalTypeSelect.value === 'tonpuku';
         regularSection.style.display = isTonpuku ? 'none' : 'block';
-        durationInput.style.display = isTonpuku ? 'none' : '';
         startDateInput.required = !isTonpuku;
     }
 
@@ -119,11 +128,10 @@ document.addEventListener("DOMContentLoaded", () => {
     scheduleList.addEventListener('click', (e) => {
         if (e.target.classList.contains('remove-schedule-btn')) {
             e.target.closest('.schedule-row').remove();
-            calculateEndDateRealtime(); // 行が削除されたら再計算
+            calculateEndDateRealtime();
         }
     });
 
-    // リアルタイム計算用のイベントリスナー
     [stockInput, startDateInput, durationInput].forEach(input => {
         input.addEventListener('input', calculateEndDateRealtime);
     });
@@ -162,7 +170,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const totalStock = Number(stockInput.value);
         const duration = Number(durationInput.value);
 
-        // 在庫チェック (期間指定がある場合のみ)
         if (!isTonpuku && duration > 0 && dailyDosage > 0) {
             const requiredStock = dailyDosage * duration;
             if (totalStock < requiredStock) {
@@ -171,7 +178,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         
-        // 最終的な終了日を確定
         calculateEndDateRealtime();
         const finalEndDate = endDateInput.value;
 
@@ -184,7 +190,6 @@ document.addEventListener("DOMContentLoaded", () => {
             endDate: isTonpuku ? null : finalEndDate,
             isTonpuku: isTonpuku,
             schedule: schedule
-            // 服用期間（duration）は頓服薬の場合は未使用
         };
 
         medicines.push(newMedicine);
@@ -193,9 +198,9 @@ document.addEventListener("DOMContentLoaded", () => {
         renderList();
         form.reset();
         updateFormUI();
-        scheduleList.innerHTML = ""; // フォームのスケジュール行をクリア
-        addScheduleRow(); // 最初の行を追加
-        endDateInput.value = ""; // 終了日表示をクリア
+        scheduleList.innerHTML = "";
+        addScheduleRow();
+        endDateInput.value = "";
     });
 
     // --- 初期化処理 ---
