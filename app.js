@@ -40,50 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js')
             .then(reg => console.log('Service Worker registered:', reg))
-            .catch(err => console.error('Service Worker registration failed:', err));
-    }
-    if ("Notification" in window) {
-        Notification.requestPermission();
-    }
-
-    /**
-     * Service Workerに通知予約を依頼する
-     * @param {object} medicine - 薬オブジェクト
-     * @param {object} schedule - スケジュールオブジェクト
-     */
-    function scheduleNextNotification(medicine, schedule) {
-        if (!navigator.serviceWorker.controller) return;
-
-        const [hh, mm] = schedule.notifyTime.split(":");
-        let notifyDate = new Date();
-        notifyDate.setHours(Number(hh), Number(mm), 0, 0);
-
-        // すでに時刻を過ぎていたら明日の同じ時刻に設定
-        if (notifyDate < new Date()) {
-            notifyDate.setDate(notifyDate.getDate() + 1);
-        }
-
-        // 開始日・終了日を考慮
-        const startDate = medicine.startDate ? new Date(medicine.startDate) : null;
-        const endDate = medicine.endDate ? new Date(medicine.endDate) : null;
-        if ((startDate && notifyDate < startDate) || (endDate && notifyDate > endDate)) {
-            return; // 期間外なら通知しない
-        }
-
-        navigator.serviceWorker.controller.postMessage({
-            type: "scheduleNotification",
-            payload: {
-                id: `${medicine.id}-${schedule.timing}-${schedule.notifyTime}`, // ユニークなID
-                title: `服薬時間です！`,
-                body: `「${medicine.name}」(${schedule.timing}) を ${schedule.dosage}錠 飲む時間です。`,
-                time: notifyDate.getTime()
-            }
-        });
-    }
-
-
-    // --- UI更新関数 ---
-
+    // --- 通知機能廃止 ---
     /** 在庫警告をチェックして通知 */
     function checkStockWarning(med) {
         if (med.stockWarningThreshold && med.stock <= med.stockWarningThreshold) {
@@ -239,7 +196,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // 体調メモボタン
         if (e.target.classList.contains("memo-btn")) {
-            // ここに<dialog>を使ったメモ入力UIを実装
+            // --- 追加: <dialog>を使った体調メモ入力UI ---
+            let dialog = document.getElementById("memo-dialog");
+            if (!dialog) {
+                dialog = document.createElement("dialog");
+                dialog.id = "memo-dialog";
+                dialog.innerHTML = `
+                  <form method="dialog" id="memo-dialog-form">
+                    <h3>体調・副作用メモ</h3>
+                    <textarea id="memo-dialog-text" rows="4" style="width:100%" placeholder="体調・副作用などを記録してください"></textarea><br>
+                    <button id="memo-dialog-save" type="submit">保存</button>
+                    <button id="memo-dialog-cancel" type="button">キャンセル</button>
+                  </form>
+                `;
+                document.body.appendChild(dialog);
+            }
+            dialog.showModal();
+            const form = dialog.querySelector("#memo-dialog-form");
+            const saveBtn = dialog.querySelector("#memo-dialog-save");
+            const cancelBtn = dialog.querySelector("#memo-dialog-cancel");
+            cancelBtn.onclick = () => dialog.close();
+            form.onsubmit = (ev) => {
+                ev.preventDefault();
+                const memoText = dialog.querySelector("#memo-dialog-text").value.trim();
+                if (memoText) {
+                    conditionMemos.push({
+                        id: Date.now().toString() + Math.random().toString(36).slice(2),
+                        medicineId: medId,
+                        date: new Date().toLocaleString(),
+                        memo: memoText
+                    });
+                    ConditionMemoRepository.save(conditionMemos);
+                    renderMemoList();
+                }
+                dialog.close();
+            };
+            // --- 追加ここまで ---
         }
     });
 
