@@ -151,14 +151,15 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    /** スケジュール入力行を1つ追加 */
+    /** スケジュール入力行を1つ追加（頓服薬の場合は通知時刻欄なし） */
     function addScheduleRow() {
+        const isTonpuku = intervalTypeSelect.value === 'tonpuku';
         const row = document.createElement('div');
         row.className = 'schedule-row';
         row.innerHTML = `
             <input type="text" name="timing-text" placeholder="例：朝食後" required>
             <input type="number" name="dosage-amount" min="1" value="1" required> 錠
-            <input type="time" name="notify-time" required>
+            ${isTonpuku ? '' : '<input type="time" name="notify-time" required>'}
             <button type="button" class="remove-schedule-btn">×</button>
         `;
         scheduleList.appendChild(row);
