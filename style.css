@@ -33,7 +33,8 @@ label {
 input[type="text"],
 input[type="number"],
 input[type="date"],
-select {
+select,
+textarea {
     width: 100%;
     padding: 10px;
     border: 1px solid #ccc;
@@ -65,6 +66,7 @@ button {
     border-radius: 4px;
     font-size: 1em;
     transition: background-color 0.2s;
+    margin-top: 5px;
 }
 
 .main-btn {
@@ -96,13 +98,12 @@ button {
     background-color: #c9302c;
 }
 
-
-#medicine-list {
+#medicine-list, #history-list {
     list-style: none;
     padding: 0;
 }
 
-#medicine-list li {
+#medicine-list li, #history-list li {
     background: #fff;
     padding: 15px;
     margin-bottom: 10px;
@@ -114,9 +115,33 @@ button {
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
+#history-list li {
+    border-left-color: #aaa;
+}
+
+
 #medicine-list .actions {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 120px;
+}
+
+#medicine-list .daily-action {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 5px;
+}
+#medicine-list .daily-action .sub-btn {
+    flex: 1;
+}
+
+#medicine-list .actions .sub-btn {
+    background-color: #5bc0de;
+}
+#medicine-list .actions .sub-btn:hover {
+    background-color: #31b0d5;
 }
 
 #medicine-list .actions .delete-btn {
