@@ -146,18 +146,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     /** スケジュール入力行を1つ追加 */
-    function addScheduleRow(scheduleData = { timing: '', dosage: 1 }) {
-        const row = document.createElement('div');
-        row.className = 'schedule-row';
-        row.innerHTML = `
-            <input type="text" name="timing-text" placeholder="例：朝食後" required value="${scheduleData.timing}">
-            <input type="number" name="dosage-amount" min="1" value="${scheduleData.dosage}" required style="width: 80px; flex: 0 1 auto;">
-            <span>錠</span>
-            <button type="button" class="remove-schedule-btn">×</button>
-        `;
-        scheduleList.appendChild(row);
-        row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateEndDateRealtime));
-    }
+    function addScheduleRow(scheduleData) { // デフォルト引数を削除
+    const row = document.createElement('div');
+    row.className = 'schedule-row';
+    // scheduleDataが存在する場合のみ値を設定し、なければ空欄にする
+    const timingValue = scheduleData ? scheduleData.timing : '';
+    const dosageValue = scheduleData ? scheduleData.dosage : 1;
+    
+    row.innerHTML = `
+        <input type="text" name="timing-text" placeholder="例：朝食後" required value="${timingValue}">
+        <input type="number" name="dosage-amount" min="1" value="${dosageValue}" required style="width: 80px; flex: 0 1 auto;">
+        <span>錠</span>
+        <button type="button" class="remove-schedule-btn">×</button>
+    `;
+    scheduleList.appendChild(row);
+    row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateEndDateRealtime));
+}
 
     /** 終了日をリアルタイムで計算・表示する関数 */
     function calculateEndDateRealtime() {
