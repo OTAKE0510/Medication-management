@@ -142,7 +142,8 @@ document.addEventListener("DOMContentLoaded", () => {
         window.scrollTo(0, 0);
     }
 
-     function addScheduleRow(timing = '', dosage = 1) { // 引数を直接の値に変更
+    /** スケジュール入力行を1つ追加 (★ 修正) */
+    function addScheduleRow(timing = '', dosage = 1) {
         const row = document.createElement('div');
         row.className = 'schedule-row';
     
@@ -153,7 +154,6 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="remove-schedule-btn">×</button>
         `;
         scheduleList.appendChild(row);
-        // 新しく追加した行の入力欄にも、リアルタイム計算用のイベントリスナーを設定
         row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateEndDateRealtime));
     }
 
