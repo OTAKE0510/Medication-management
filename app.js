@@ -146,9 +146,13 @@ document.addEventListener("DOMContentLoaded", () => {
     function addScheduleRow(timing = '', dosage = 1) {
         const row = document.createElement('div');
         row.className = 'schedule-row';
-    
+        // PointerEvent対策: undefinedやイベントオブジェクトが渡された場合は空欄にする
+        let timingText = '';
+        if (typeof timing === 'string') {
+            timingText = timing;
+        }
         row.innerHTML = `
-            <input type="text" name="timing-text" placeholder="例：朝食後" required value="${timing}">
+            <input type="text" name="timing-text" placeholder="例：朝食後" required value="${timingText}">
             <input type="number" name="dosage-amount" min="1" value="${dosage}" required style="width: 80px; flex: 0 1 auto;">
             <span>錠</span>
             <button type="button" class="remove-schedule-btn">×</button>
