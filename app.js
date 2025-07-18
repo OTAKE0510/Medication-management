@@ -238,10 +238,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (medIndex === -1) return;
         const med = medicines[medIndex];
 
+        let medicineDataChanged = false;
+        let historyDataChanged = false;
+
         // --- アクションごとの処理 ---
 
         if (target.classList.contains("delete-btn")) {
             archiveMedicine(medicineId);
+            medicineDataChanged = true; // メインのリストから消えるのでtrue
         }
         
         else if (target.classList.contains("edit-btn")) {
@@ -251,13 +255,14 @@ document.addEventListener("DOMContentLoaded", () => {
         else if (target.classList.contains("take-daily-btn")) {
             const timing = target.dataset.timing;
             const sch = med.schedule.find(s => s.timing === timing);
-            if (!sch) return;
-
-            med.stock = Math.max(0, med.stock - sch.dosage);
-            history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: timing, status: 'taken' });
-            
-            if (med.stock <= 0) {
-                archiveMedicine(medicineId);
+            if (sch) {
+                med.stock = Math.max(0, med.stock - sch.dosage);
+                history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: timing, status: 'taken' });
+                medicineDataChanged = true;
+                historyDataChanged = true;
+                if (med.stock <= 0) {
+                    archiveMedicine(medicineId);
+                }
             }
         }
         
@@ -265,7 +270,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const sch = med.schedule[0] || { timing: '症状時', dosage: 1 };
             med.stock = Math.max(0, med.stock - sch.dosage);
             history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: sch.timing, status: 'taken' });
-            
+            medicineDataChanged = true;
+            historyDataChanged = true;
             if (med.stock <= 0) {
                 archiveMedicine(medicineId);
             }
@@ -274,31 +280,37 @@ document.addEventListener("DOMContentLoaded", () => {
         else if (target.classList.contains("forgot-daily-btn")) {
             const timing = target.dataset.timing;
             const sch = med.schedule.find(s => s.timing === timing);
-            if (!sch) return;
-
-            history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: timing, status: 'forgotten' });
-            
-            const todayStr = new Date().toISOString().slice(0, 10);
-            const forgottenCountToday = history.filter(h => h.medicineId === med.id && h.date.startsWith(todayStr) && h.status === 'forgotten').length;
-            
-            if (forgottenCountToday >= med.schedule.length && med.endDate) {
-                const currentEndDate = new Date(med.endDate + 'T00:00:00');
-                currentEndDate.setDate(currentEndDate.getDate() + 1);
+            if (sch) {
+                history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: timing, status: 'forgotten' });
+                historyDataChanged = true;
                 
-                const year = currentEndDate.getFullYear();
-                const month = String(currentEndDate.getMonth() + 1).padStart(2, '0');
-                const day = String(currentEndDate.getDate()).padStart(2, '0');
-                med.endDate = `${year}-${month}-${day}`;
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const forgottenCountToday = history.filter(h => h.medicineId === med.id && h.date.startsWith(todayStr) && h.status === 'forgotten').length;
                 
-                alert(`「${med.name}」は1日分飲み忘れたため、終了日が1日延長されました。`);
+                if (forgottenCountToday >= med.schedule.length && med.endDate) {
+                    const currentEndDate = new Date(med.endDate + 'T00:00:00');
+                    currentEndDate.setDate(currentEndDate.getDate() + 1);
+                    
+                    const year = currentEndDate.getFullYear();
+                    const month = String(currentEndDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(currentEndDate.getDate()).padStart(2, '0');
+                    med.endDate = `${year}-${month}-${day}`;
+                    
+                    medicineDataChanged = true; // 終了日が変更された
+                    alert(`「${med.name}」は1日分飲み忘れたため、終了日が1日延長されました。`);
+                }
             }
         }
 
-        // --- 変更を保存し、画面を再描画 ---
-        MedicineRepository.save(medicines);
-        HistoryRepository.save(history);
-        renderList();
-        renderHistoryList();
+        // --- 変更があった場合のみ、保存と再描画を行う ---
+        if (medicineDataChanged) {
+            MedicineRepository.save(medicines);
+            renderList();
+            renderHistoryList(); // 履歴に移動した場合に備えてこちらも更新
+        }
+        if (historyDataChanged) {
+            HistoryRepository.save(history);
+        }
     });
     // ★★★ 修正箇所ここまで ★★★
 
@@ -332,66 +344,4 @@ document.addEventListener("DOMContentLoaded", () => {
         let dailyDosage = 0;
 
         form.querySelectorAll('.schedule-row').forEach(row => {
-            const timing = row.querySelector('input[name="timing-text"]').value;
-            const dosage = row.querySelector('input[name="dosage-amount"]').value;
-            if (timing && dosage) {
-                const dosageNum = Number(dosage);
-                schedule.push({ timing, dosage: dosageNum });
-                if (!isTonpuku) dailyDosage += dosageNum;
-            }
-        });
-
-        if (schedule.length === 0) {
-            alert("服用タイミングを少なくとも1つ入力してください。");
-            return;
-        }
-
-        const totalStock = Number(stockInput.value);
-        const duration = Number(durationInput.value);
-
-        if (!isTonpuku && duration > 0 && dailyDosage > 0) {
-            const requiredStock = dailyDosage * duration;
-            if (totalStock < requiredStock) {
-                alert(`在庫が不足しています。この期間には${requiredStock}錠必要ですが、在庫は${totalStock}錠です。`);
-                return;
-            }
-        }
-        
-        calculateEndDateRealtime();
-        const finalEndDate = endDateInput.value;
-
-        const medicineData = {
-            id: editId || Date.now().toString(),
-            name: form.name.value,
-            stock: totalStock,
-            notes: form.notes.value,
-            isTonpuku: isTonpuku,
-            schedule: schedule,
-            startDate: isTonpuku ? null : startDateInput.value,
-            endDate: isTonpuku ? null : finalEndDate,
-        };
-
-        if (editId) {
-            const index = medicines.findIndex(m => m.id === editId);
-            medicines[index] = medicineData;
-        } else {
-            medicines.push(medicineData);
-        }
-        
-        MedicineRepository.save(medicines);
-        renderList();
-        
-        form.reset();
-        editIdInput.value = '';
-        cancelEditBtn.style.display = 'none';
-        updateFormUI();
-        scheduleList.innerHTML = "";
-        addScheduleRow();
-    });
-
-    // --- 初期化処理 ---
-    updateFormUI();
-    addScheduleRow();
-    renderList();
-    renderHistoryList();
-});
+            const timing = row.querySelector('input
