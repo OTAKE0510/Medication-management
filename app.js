@@ -145,23 +145,24 @@ document.addEventListener("DOMContentLoaded", () => {
         window.scrollTo(0, 0);
     }
 
-    /** スケジュール入力行を1つ追加 */
-    function addScheduleRow(scheduleData) { // デフォルト引数を削除
-    const row = document.createElement('div');
-    row.className = 'schedule-row';
-    // scheduleDataが存在する場合のみ値を設定し、なければ空欄にする
-    const timingValue = scheduleData ? scheduleData.timing : '';
-    const dosageValue = scheduleData ? scheduleData.dosage : 1;
+    /** スケジュール入力行を1つ追加 (★★★ 修正点 ★★★) */
+    function addScheduleRow(scheduleData) {
+        const row = document.createElement('div');
+        row.className = 'schedule-row';
+
+        // scheduleDataが存在する場合のみ値を設定し、なければ空欄やデフォルト値にする
+        const timingValue = scheduleData ? scheduleData.timing : '';
+        const dosageValue = scheduleData ? scheduleData.dosage : 1;
     
-    row.innerHTML = `
-        <input type="text" name="timing-text" placeholder="例：朝食後" required value="${timingValue}">
-        <input type="number" name="dosage-amount" min="1" value="${dosageValue}" required style="width: 80px; flex: 0 1 auto;">
-        <span>錠</span>
-        <button type="button" class="remove-schedule-btn">×</button>
-    `;
-    scheduleList.appendChild(row);
-    row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateEndDateRealtime));
-}
+        row.innerHTML = `
+            <input type="text" name="timing-text" placeholder="例：朝食後" required value="${timingValue}">
+            <input type="number" name="dosage-amount" min="1" value="${dosageValue}" required style="width: 80px; flex: 0 1 auto;">
+            <span>錠</span>
+            <button type="button" class="remove-schedule-btn">×</button>
+        `;
+        scheduleList.appendChild(row);
+        row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateEndDateRealtime));
+    }
 
     /** 終了日をリアルタイムで計算・表示する関数 */
     function calculateEndDateRealtime() {
@@ -218,7 +219,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // --- イベントリスナー設定 ---
     intervalTypeSelect.addEventListener('change', updateFormUI);
-    addScheduleBtn.addEventListener('click', addScheduleRow);
+    addScheduleBtn.addEventListener('click', () => addScheduleRow()); // 引数なしで呼び出す
 
     scheduleList.addEventListener('click', (e) => {
         if (e.target.classList.contains('remove-schedule-btn')) {
@@ -257,7 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
             history.push({ medicineId, date: new Date().toISOString(), dosage, timing, status });
             HistoryRepository.save(history);
 
-            if (med.stock <= 0 && status === 'taken') { // 服用して在庫が0になった場合のみ履歴へ
+            if (med.stock <= 0) {
                 archiveMedicine(medicineId);
             } else {
                 MedicineRepository.save(medicines);
@@ -272,47 +273,22 @@ document.addEventListener("DOMContentLoaded", () => {
             if(sch) handleDoseAction(timing, sch.dosage, 'taken');
         }
         
-        // ★★★ ここからが修正箇所です ★★★
         if (target.classList.contains("forgot-daily-btn")) {
             const timing = target.dataset.timing;
             const sch = med.schedule.find(s => s.timing === timing);
-            if(!sch) return;
+            if(sch) handleDoseAction(timing, sch.dosage, 'forgotten');
             
-            // まず「飲み忘れ」として記録
-            handleDoseAction(timing, sch.dosage, 'forgotten');
-            
-            // 今日の日付を取得 (YYYY-MM-DD形式)
             const todayStr = new Date().toISOString().slice(0, 10);
-
-            // 今日の「飲み忘れ」記録をカウント
-            const forgottenCountToday = history.filter(h => 
-                h.medicineId === med.id && 
-                h.date.startsWith(todayStr) && 
-                h.status === 'forgotten'
-            ).length;
+            const forgottenCountToday = history.filter(h => h.medicineId === med.id && h.date.startsWith(todayStr) && h.status === 'forgotten').length;
             
-            // 飲み忘れ回数が1日の服用回数以上になったかチェック
-            if (forgottenCountToday >= med.schedule.length) {
-                // 終了日が設定されている場合のみ延長
-                if (med.endDate) {
-                    const currentEndDate = new Date(med.endDate + 'T00:00:00');
-                    currentEndDate.setDate(currentEndDate.getDate() + 1); // 終了日を1日延長
-                    
-                    // YYYY-MM-DD形式に変換して保存
-                    const year = currentEndDate.getFullYear();
-                    const month = String(currentEndDate.getMonth() + 1).padStart(2, '0');
-                    const day = String(currentEndDate.getDate()).padStart(2, '0');
-                    med.endDate = `${year}-${month}-${day}`;
-                    
-                    MedicineRepository.save(medicines); // 変更を保存
-                    renderList(); // リストを再描画して変更を反映
-                    
-                    // ユーザーに通知（任意）
-                    alert(`「${med.name}」は1日分飲み忘れたため、終了日が1日延長されました。`);
-                }
+            if (forgottenCountToday >= med.schedule.length && med.endDate) {
+                const currentEndDate = new Date(med.endDate + 'T00:00:00');
+                currentEndDate.setDate(currentEndDate.getDate() + 1);
+                med.endDate = currentEndDate.toISOString().slice(0, 10).replace(/-/g, '-');
+                MedicineRepository.save(medicines);
+                renderList();
             }
         }
-        // ★★★ 修正箇所ここまで ★★★
         
         if (target.classList.contains("take-tonpuku-btn")) {
             const sch = med.schedule[0] || { timing: '症状時', dosage: 1};
