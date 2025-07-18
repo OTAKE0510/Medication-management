@@ -145,15 +145,18 @@ document.addEventListener("DOMContentLoaded", () => {
         window.scrollTo(0, 0);
     }
 
-    /** スケジュール入力行を1つ追加 (★★★ 修正点 ★★★) */
+    // ★★★ この関数をまるごと置き換えてください ★★★
+
+    /** スケジュール入力行を1つ追加 */
     function addScheduleRow(scheduleData) {
         const row = document.createElement('div');
         row.className = 'schedule-row';
-
-        // scheduleDataが存在する場合のみ値を設定し、なければ空欄やデフォルト値にする
+    
+        // scheduleDataが渡された場合（編集時など）はその値を使い、
+        // そうでない場合（新規追加時）は空文字やデフォルト値を使う
         const timingValue = scheduleData ? scheduleData.timing : '';
         const dosageValue = scheduleData ? scheduleData.dosage : 1;
-    
+
         row.innerHTML = `
             <input type="text" name="timing-text" placeholder="例：朝食後" required value="${timingValue}">
             <input type="number" name="dosage-amount" min="1" value="${dosageValue}" required style="width: 80px; flex: 0 1 auto;">
@@ -161,8 +164,9 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="remove-schedule-btn">×</button>
         `;
         scheduleList.appendChild(row);
+        // 新しく追加した行の入力欄にも、リアルタイム計算用のイベントリスナーを設定
         row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateEndDateRealtime));
-    }
+        }
 
     /** 終了日をリアルタイムで計算・表示する関数 */
     function calculateEndDateRealtime() {
