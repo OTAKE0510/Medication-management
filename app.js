@@ -1,14 +1,14 @@
 // --- リポジトリ (データ操作) ---
 const MedicineRepository = {
-    get: () => JSON.parse(localStorage.getItem("medicines")) || [],
+    get: () => { try { return JSON.parse(localStorage.getItem("medicines")) || [] } catch (e) { return [] } },
     save: (data) => localStorage.setItem("medicines", JSON.stringify(data))
 };
 const HistoryRepository = {
-    get: () => JSON.parse(localStorage.getItem("history")) || [],
+    get: () => { try { return JSON.parse(localStorage.getItem("history")) || [] } catch (e) { return [] } },
     save: (data) => localStorage.setItem("history", JSON.stringify(data))
 };
 const PastMedicineRepository = {
-    get: () => JSON.parse(localStorage.getItem("pastMedicines")) || [],
+    get: () => { try { return JSON.parse(localStorage.getItem("pastMedicines")) || [] } catch (e) { return [] } },
     save: (data) => localStorage.setItem("pastMedicines", JSON.stringify(data))
 };
 
@@ -43,9 +43,6 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const [medicineToArchive] = medicines.splice(medIndex, 1);
         pastMedicines.push(medicineToArchive);
-
-        MedicineRepository.save(medicines);
-        PastMedicineRepository.save(pastMedicines);
     }
 
     // --- UI更新・計算関数 ---
@@ -145,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.scrollTo(0, 0);
     }
 
-    /** スケジュール入力行を1つ追加 */
+    /** スケジュール入力行を1つ追加 (★ 修正) */
     function addScheduleRow(timing = '', dosage = 1) {
         const row = document.createElement('div');
         row.className = 'schedule-row';
@@ -228,7 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
         input.addEventListener('input', calculateEndDateRealtime);
     });
 
-    // ★★★ ここからが抜本的な修正箇所です ★★★
+    // ★ 修正: listイベントリスナー全体を見直し
     list.addEventListener("click", (e) => {
         const target = e.target;
         const medicineId = target.dataset.id;
@@ -236,12 +233,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const medIndex = medicines.findIndex(m => m.id === medicineId);
         if (medIndex === -1) return;
-        const med = medicines[medIndex];
-
+        
+        let medicineDataChanged = false;
+        let historyDataChanged = false;
+        
         // --- アクションごとの処理 ---
-
         if (target.classList.contains("delete-btn")) {
             archiveMedicine(medicineId);
+            medicineDataChanged = true;
         }
         
         else if (target.classList.contains("edit-btn")) {
@@ -250,22 +249,26 @@ document.addEventListener("DOMContentLoaded", () => {
         
         else if (target.classList.contains("take-daily-btn")) {
             const timing = target.dataset.timing;
+            const med = medicines[medIndex];
             const sch = med.schedule.find(s => s.timing === timing);
-            if (!sch) return;
-
-            med.stock = Math.max(0, med.stock - sch.dosage);
-            history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: timing, status: 'taken' });
-            
-            if (med.stock <= 0) {
-                archiveMedicine(medicineId);
+            if (sch) {
+                med.stock = Math.max(0, med.stock - sch.dosage);
+                history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing, status: 'taken' });
+                medicineDataChanged = true;
+                historyDataChanged = true;
+                if (med.stock <= 0) {
+                    archiveMedicine(medicineId);
+                }
             }
         }
         
         else if (target.classList.contains("take-tonpuku-btn")) {
+            const med = medicines[medIndex];
             const sch = med.schedule[0] || { timing: '症状時', dosage: 1 };
             med.stock = Math.max(0, med.stock - sch.dosage);
             history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: sch.timing, status: 'taken' });
-            
+            medicineDataChanged = true;
+            historyDataChanged = true;
             if (med.stock <= 0) {
                 archiveMedicine(medicineId);
             }
@@ -273,34 +276,40 @@ document.addEventListener("DOMContentLoaded", () => {
         
         else if (target.classList.contains("forgot-daily-btn")) {
             const timing = target.dataset.timing;
+            const med = medicines[medIndex];
             const sch = med.schedule.find(s => s.timing === timing);
-            if (!sch) return;
-
-            history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: timing, status: 'forgotten' });
-            
-            const todayStr = new Date().toISOString().slice(0, 10);
-            const forgottenCountToday = history.filter(h => h.medicineId === med.id && h.date.startsWith(todayStr) && h.status === 'forgotten').length;
-            
-            if (forgottenCountToday >= med.schedule.length && med.endDate) {
-                const currentEndDate = new Date(med.endDate + 'T00:00:00');
-                currentEndDate.setDate(currentEndDate.getDate() + 1);
+            if (sch) {
+                history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing, status: 'forgotten' });
+                historyDataChanged = true;
                 
-                const year = currentEndDate.getFullYear();
-                const month = String(currentEndDate.getMonth() + 1).padStart(2, '0');
-                const day = String(currentEndDate.getDate()).padStart(2, '0');
-                med.endDate = `${year}-${month}-${day}`;
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const forgottenCountToday = history.filter(h => h.medicineId === med.id && h.date.startsWith(todayStr) && h.status === 'forgotten').length;
                 
-                alert(`「${med.name}」は1日分飲み忘れたため、終了日が1日延長されました。`);
+                if (forgottenCountToday >= med.schedule.length && med.endDate) {
+                    const currentEndDate = new Date(med.endDate + 'T00:00:00');
+                    currentEndDate.setDate(currentEndDate.getDate() + 1);
+                    
+                    const year = currentEndDate.getFullYear();
+                    const month = String(currentEndDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(currentEndDate.getDate()).padStart(2, '0');
+                    med.endDate = `${year}-${month}-${day}`;
+                    
+                    medicineDataChanged = true;
+                    alert(`「${med.name}」は1日分飲み忘れたため、終了日が1日延長されました。`);
+                }
             }
         }
 
-        // --- 変更を保存し、画面を再描画 ---
-        MedicineRepository.save(medicines);
-        HistoryRepository.save(history);
-        renderList();
-        renderHistoryList();
+        // --- 変更があった場合のみ、保存と再描画を行う ---
+        if (medicineDataChanged) {
+            MedicineRepository.save(medicines);
+            renderList();
+            renderHistoryList();
+        }
+        if (historyDataChanged) {
+            HistoryRepository.save(history);
+        }
     });
-    // ★★★ 修正箇所ここまで ★★★
 
     historyList.addEventListener("click", (e) => {
         if (e.target.classList.contains("delete-history-btn")) {
