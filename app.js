@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
         updateFormUI();
 
         scheduleList.innerHTML = '';
-        (med.schedule || []).forEach(sch => addScheduleRow(sch));
+        (med.schedule || []).forEach(sch => addScheduleRow(sch.timing, sch.dosage));
         
         if (!med.isTonpuku) {
             form['start-date'].value = med.startDate;
@@ -145,28 +145,20 @@ document.addEventListener("DOMContentLoaded", () => {
         window.scrollTo(0, 0);
     }
 
-    // ★★★ この関数をまるごと置き換えてください ★★★
-
     /** スケジュール入力行を1つ追加 */
-    function addScheduleRow(scheduleData) {
+    function addScheduleRow(timing = '', dosage = 1) {
         const row = document.createElement('div');
         row.className = 'schedule-row';
     
-        // scheduleDataが渡された場合（編集時など）はその値を使い、
-        // そうでない場合（新規追加時）は空文字やデフォルト値を使う
-        const timingValue = scheduleData ? scheduleData.timing : '';
-        const dosageValue = scheduleData ? scheduleData.dosage : 1;
-
         row.innerHTML = `
-            <input type="text" name="timing-text" placeholder="例：朝食後" required value="${timingValue}">
-            <input type="number" name="dosage-amount" min="1" value="${dosageValue}" required style="width: 80px; flex: 0 1 auto;">
+            <input type="text" name="timing-text" placeholder="例：朝食後" required value="${timing}">
+            <input type="number" name="dosage-amount" min="1" value="${dosage}" required style="width: 80px; flex: 0 1 auto;">
             <span>錠</span>
             <button type="button" class="remove-schedule-btn">×</button>
         `;
         scheduleList.appendChild(row);
-        // 新しく追加した行の入力欄にも、リアルタイム計算用のイベントリスナーを設定
         row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateEndDateRealtime));
-        }
+    }
 
     /** 終了日をリアルタイムで計算・表示する関数 */
     function calculateEndDateRealtime() {
@@ -223,7 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // --- イベントリスナー設定 ---
     intervalTypeSelect.addEventListener('change', updateFormUI);
-    addScheduleBtn.addEventListener('click', () => addScheduleRow()); // 引数なしで呼び出す
+    addScheduleBtn.addEventListener('click', addScheduleRow);
 
     scheduleList.addEventListener('click', (e) => {
         if (e.target.classList.contains('remove-schedule-btn')) {
@@ -236,51 +228,55 @@ document.addEventListener("DOMContentLoaded", () => {
         input.addEventListener('input', calculateEndDateRealtime);
     });
 
+    // ★★★ ここからが抜本的な修正箇所です ★★★
     list.addEventListener("click", (e) => {
         const target = e.target;
         const medicineId = target.dataset.id;
         if (!medicineId) return;
 
-        if (target.classList.contains("delete-btn")) {
-            archiveMedicine(medicineId);
-            renderList();
-            renderHistoryList();
-        }
-
-        if (target.classList.contains("edit-btn")) {
-            populateFormForEdit(medicineId);
-        }
-        
         const medIndex = medicines.findIndex(m => m.id === medicineId);
         if (medIndex === -1) return;
         const med = medicines[medIndex];
-        
-        function handleDoseAction(timing, dosage, status) {
-            if (status === 'taken') {
-                med.stock = Math.max(0, med.stock - dosage);
-            }
-            history.push({ medicineId, date: new Date().toISOString(), dosage, timing, status });
-            HistoryRepository.save(history);
 
+        // --- アクションごとの処理 ---
+
+        if (target.classList.contains("delete-btn")) {
+            archiveMedicine(medicineId);
+        }
+        
+        else if (target.classList.contains("edit-btn")) {
+            populateFormForEdit(medicineId);
+        }
+        
+        else if (target.classList.contains("take-daily-btn")) {
+            const timing = target.dataset.timing;
+            const sch = med.schedule.find(s => s.timing === timing);
+            if (!sch) return;
+
+            med.stock = Math.max(0, med.stock - sch.dosage);
+            history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: timing, status: 'taken' });
+            
             if (med.stock <= 0) {
                 archiveMedicine(medicineId);
-            } else {
-                MedicineRepository.save(medicines);
             }
-            renderList();
-            renderHistoryList();
-        }
-
-        if (target.classList.contains("take-daily-btn")) {
-            const timing = target.dataset.timing;
-            const sch = med.schedule.find(s => s.timing === timing);
-            if(sch) handleDoseAction(timing, sch.dosage, 'taken');
         }
         
-        if (target.classList.contains("forgot-daily-btn")) {
+        else if (target.classList.contains("take-tonpuku-btn")) {
+            const sch = med.schedule[0] || { timing: '症状時', dosage: 1 };
+            med.stock = Math.max(0, med.stock - sch.dosage);
+            history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: sch.timing, status: 'taken' });
+            
+            if (med.stock <= 0) {
+                archiveMedicine(medicineId);
+            }
+        }
+        
+        else if (target.classList.contains("forgot-daily-btn")) {
             const timing = target.dataset.timing;
             const sch = med.schedule.find(s => s.timing === timing);
-            if(sch) handleDoseAction(timing, sch.dosage, 'forgotten');
+            if (!sch) return;
+
+            history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing: timing, status: 'forgotten' });
             
             const todayStr = new Date().toISOString().slice(0, 10);
             const forgottenCountToday = history.filter(h => h.medicineId === med.id && h.date.startsWith(todayStr) && h.status === 'forgotten').length;
@@ -288,23 +284,28 @@ document.addEventListener("DOMContentLoaded", () => {
             if (forgottenCountToday >= med.schedule.length && med.endDate) {
                 const currentEndDate = new Date(med.endDate + 'T00:00:00');
                 currentEndDate.setDate(currentEndDate.getDate() + 1);
-                med.endDate = currentEndDate.toISOString().slice(0, 10).replace(/-/g, '-');
-                MedicineRepository.save(medicines);
-                renderList();
+                
+                const year = currentEndDate.getFullYear();
+                const month = String(currentEndDate.getMonth() + 1).padStart(2, '0');
+                const day = String(currentEndDate.getDate()).padStart(2, '0');
+                med.endDate = `${year}-${month}-${day}`;
+                
+                alert(`「${med.name}」は1日分飲み忘れたため、終了日が1日延長されました。`);
             }
         }
-        
-        if (target.classList.contains("take-tonpuku-btn")) {
-            const sch = med.schedule[0] || { timing: '症状時', dosage: 1};
-            handleDoseAction(sch.timing, sch.dosage, 'taken');
-        }
+
+        // --- 変更を保存し、画面を再描画 ---
+        MedicineRepository.save(medicines);
+        HistoryRepository.save(history);
+        renderList();
+        renderHistoryList();
     });
+    // ★★★ 修正箇所ここまで ★★★
 
     historyList.addEventListener("click", (e) => {
         if (e.target.classList.contains("delete-history-btn")) {
             const medicineId = e.target.dataset.id;
             const medicine = pastMedicines.find(m => m.id === medicineId);
-            
             if (confirm(`「${medicine.name}」の履歴を完全に削除しますか？この操作は元に戻せません。`)) {
                 pastMedicines = pastMedicines.filter(m => m.id !== medicineId);
                 PastMedicineRepository.save(pastMedicines);
@@ -312,7 +313,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
-
 
     cancelEditBtn.addEventListener('click', () => {
         form.reset();
