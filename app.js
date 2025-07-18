@@ -92,7 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    /** 過去の薬リストを描画 (★★★ 変更点 ★★★) */
+    /** 過去の薬リストを描画 */
     function renderHistoryList() {
         historyList.innerHTML = "";
         pastMedicines.forEach(item => {
@@ -253,7 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
             history.push({ medicineId, date: new Date().toISOString(), dosage, timing, status });
             HistoryRepository.save(history);
 
-            if (med.stock <= 0) {
+            if (med.stock <= 0 && status === 'taken') { // 服用して在庫が0になった場合のみ履歴へ
                 archiveMedicine(medicineId);
             } else {
                 MedicineRepository.save(medicines);
@@ -268,22 +268,47 @@ document.addEventListener("DOMContentLoaded", () => {
             if(sch) handleDoseAction(timing, sch.dosage, 'taken');
         }
         
+        // ★★★ ここからが修正箇所です ★★★
         if (target.classList.contains("forgot-daily-btn")) {
             const timing = target.dataset.timing;
             const sch = med.schedule.find(s => s.timing === timing);
-            if(sch) handleDoseAction(timing, sch.dosage, 'forgotten');
+            if(!sch) return;
             
+            // まず「飲み忘れ」として記録
+            handleDoseAction(timing, sch.dosage, 'forgotten');
+            
+            // 今日の日付を取得 (YYYY-MM-DD形式)
             const todayStr = new Date().toISOString().slice(0, 10);
-            const forgottenCountToday = history.filter(h => h.medicineId === med.id && h.date.startsWith(todayStr) && h.status === 'forgotten').length;
+
+            // 今日の「飲み忘れ」記録をカウント
+            const forgottenCountToday = history.filter(h => 
+                h.medicineId === med.id && 
+                h.date.startsWith(todayStr) && 
+                h.status === 'forgotten'
+            ).length;
             
-            if (forgottenCountToday >= med.schedule.length && med.endDate) {
-                const currentEndDate = new Date(med.endDate + 'T00:00:00');
-                currentEndDate.setDate(currentEndDate.getDate() + 1);
-                med.endDate = currentEndDate.toISOString().slice(0, 10).replace(/-/g, '-');
-                MedicineRepository.save(medicines);
-                renderList();
+            // 飲み忘れ回数が1日の服用回数以上になったかチェック
+            if (forgottenCountToday >= med.schedule.length) {
+                // 終了日が設定されている場合のみ延長
+                if (med.endDate) {
+                    const currentEndDate = new Date(med.endDate + 'T00:00:00');
+                    currentEndDate.setDate(currentEndDate.getDate() + 1); // 終了日を1日延長
+                    
+                    // YYYY-MM-DD形式に変換して保存
+                    const year = currentEndDate.getFullYear();
+                    const month = String(currentEndDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(currentEndDate.getDate()).padStart(2, '0');
+                    med.endDate = `${year}-${month}-${day}`;
+                    
+                    MedicineRepository.save(medicines); // 変更を保存
+                    renderList(); // リストを再描画して変更を反映
+                    
+                    // ユーザーに通知（任意）
+                    alert(`「${med.name}」は1日分飲み忘れたため、終了日が1日延長されました。`);
+                }
             }
         }
+        // ★★★ 修正箇所ここまで ★★★
         
         if (target.classList.contains("take-tonpuku-btn")) {
             const sch = med.schedule[0] || { timing: '症状時', dosage: 1};
@@ -291,13 +316,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ★★★ 追加: 履歴リストの削除ボタン用イベントリスナー ★★★
     historyList.addEventListener("click", (e) => {
         if (e.target.classList.contains("delete-history-btn")) {
             const medicineId = e.target.dataset.id;
             const medicine = pastMedicines.find(m => m.id === medicineId);
             
-            // 削除前に確認ダイアログを表示
             if (confirm(`「${medicine.name}」の履歴を完全に削除しますか？この操作は元に戻せません。`)) {
                 pastMedicines = pastMedicines.filter(m => m.id !== medicineId);
                 PastMedicineRepository.save(pastMedicines);
