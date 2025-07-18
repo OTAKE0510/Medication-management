@@ -281,21 +281,17 @@ document.addEventListener("DOMContentLoaded", () => {
             if (sch) {
                 history.push({ medicineId, date: new Date().toISOString(), dosage: sch.dosage, timing, status: 'forgotten' });
                 historyDataChanged = true;
-                
-                const todayStr = new Date().toISOString().slice(0, 10);
-                const forgottenCountToday = history.filter(h => h.medicineId === med.id && h.date.startsWith(todayStr) && h.status === 'forgotten').length;
-                
-                if (forgottenCountToday >= med.schedule.length && med.endDate) {
+                med.forgottenCount = (med.forgottenCount || 0) + 1;
+                if (med.forgottenCount >= med.schedule.length && med.endDate) {
                     const currentEndDate = new Date(med.endDate + 'T00:00:00');
                     currentEndDate.setDate(currentEndDate.getDate() + 1);
-                    
                     const year = currentEndDate.getFullYear();
                     const month = String(currentEndDate.getMonth() + 1).padStart(2, '0');
                     const day = String(currentEndDate.getDate()).padStart(2, '0');
                     med.endDate = `${year}-${month}-${day}`;
-                    
+                    med.forgottenCount = 0;
                     medicineDataChanged = true;
-                    alert(`「${med.name}」は1日分飲み忘れたため、終了日が1日延長されました。`);
+                    alert(`「${med.name}」は累積で1日分飲み忘れたため、終了日が1日延長されました。`);
                 }
             }
         }
@@ -378,6 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
             schedule: schedule,
             startDate: isTonpuku ? null : startDateInput.value,
             endDate: isTonpuku ? null : finalEndDate,
+            forgottenCount: editId ? (medicines.find(m => m.id === editId)?.forgottenCount || 0) : 0,
         };
 
         if (editId) {
